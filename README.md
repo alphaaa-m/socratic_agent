@@ -4,31 +4,43 @@ AI-powered tutoring through guided questioning (docs in `socratic-agent-docs/` a
 
 ## Prerequisites
 
-- Python 3.12+, Node.js 20+, PostgreSQL 15+ (local service or `docker compose up -d db`)
+- Python 3.12+, `uv`, Node.js 20+, local PostgreSQL 15+ (no Docker)
 
 ## Setup
 
 ```bash
-# 1. Database (native Postgres): create DBs
+# 1. Database (single DB): create once
 psql -U postgres -c "CREATE DATABASE socratic_agent OWNER postgres"
-psql -U postgres -c "CREATE DATABASE socratic_agent_test OWNER postgres"
 
 # 2. Backend
 cd backend
-py -3.13 -m venv .venv && .venv\Scripts\activate   # Windows
-pip install -r requirements.txt
-cp .env.example .env   # edit DATABASE_URL / JWT_SECRET (already filled for local dev)
-alembic upgrade head
-python scripts/seed.py
-uvicorn app.main:app --reload  # http://localhost:8000/docs, health: /api/v1/health
+uv venv
+uv pip install -r requirements.txt
+cp .env.example .env   # edit DATABASE_URL / JWT_SECRET / LLM keys (already filled for local dev)
+uv run alembic upgrade head
+uv run python scripts/seed.py
+uv run uvicorn app.main:app --reload  # http://localhost:8000/docs, health: /api/v1/health
 
 # 3. Frontend
 cd ../frontend
 npm install && npm run dev  # http://localhost:3000
 ```
 
-Default local DB: `postgresql://postgres:postgres123@localhost:5432/socratic_agent`
-(test DB: `.../socratic_agent_test`).
+Single local DB: `postgresql://postgres:postgres123@localhost:5432/socratic_agent`.
+Tests run against the same DB (savepoint rollback per test, schema ensured via `alembic upgrade head` — never dropped).
+
+## LLM providers
+
+Phase 0-3 use `LLM_PROVIDER=fake` (deterministic `FakeGateway`).
+From Phase 4, set `LLM_PROVIDER=groq` (`GROQ_API_KEY`, model e.g. `llama-3.3-70b-versatile`)
+or `LLM_PROVIDER=gemini` (`GOOGLE_API_KEY`, model e.g. `gemini-2.0-flash`).
+Embeddings (Phase 7) use HuggingFace `sentence-transformers` (see `EMBEDDING_MODEL`).
+
+## RAG storage split
+
+- PostgreSQL `document_chunks`: chunk **text**, order (`chunk_index`), metadata — the source of truth.
+- FAISS: only embedding **vectors**, keyed by `document_chunks.vector_id` (`GENERATED ALWAYS AS IDENTITY`).
+- Retrieval = FAISS top-K `vector_id`s → Postgres lookup of the chunk text. Rebuild the index anytime from Postgres.
 
 ## Find work
 

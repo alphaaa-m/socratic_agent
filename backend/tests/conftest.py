@@ -1,7 +1,8 @@
 import os
 
 os.environ.setdefault("APP_ENV", "test")
-os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/socratic_agent_test")
+# Single shared database (no separate test DB): ensure schema exists, never drop.
+os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/socratic_agent")
 os.environ.setdefault("JWT_SECRET", "test-secret-test-secret-test-secret-12")
 os.environ.setdefault("LLM_PROVIDER", "fake")
 os.environ.setdefault("LLM_MODEL", "fake")
@@ -24,7 +25,6 @@ def engine():
     url = get_settings().database_url
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
     return create_engine(url)
 

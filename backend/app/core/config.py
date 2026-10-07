@@ -19,14 +19,15 @@ class Settings(BaseSettings):
     refresh_token_days: int = 7
 
     # "fake" is used for tests and Phase 3 (FakeGateway). Real providers from Phase 4.
-    llm_provider: Literal["openai", "anthropic", "ollama", "fake"] = "fake"
+    llm_provider: Literal["openai", "anthropic", "groq", "gemini", "fake"] = "fake"
     llm_model: str = "fake"
     llm_temperature: float = 0.3
     llm_timeout_seconds: int = 30
     llm_max_retries: int = 2
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
-    ollama_base_url: str = "http://localhost:11434"
+    groq_api_key: SecretStr | None = None
+    google_api_key: SecretStr | None = None  # Gemini via langchain-google-genai
 
     rag_enabled: bool = False
     faiss_index_dir: str = "./data/faiss"

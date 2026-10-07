@@ -21,8 +21,9 @@ ruff>=0.4
 # langchain-community>=0.3
 # langchain-openai>=0.2
 # langchain-anthropic>=0.3
-# langchain-ollama>=0.2
-# Phase 7 (RAG) -- uncomment when needed:
+# langchain-groq>=0.2
+# langchain-google-genai>=2.0
+# Phase 7 (RAG, HuggingFace embeddings) -- uncomment when needed:
 # langchain-huggingface>=0.1
 # sentence-transformers>=3.0
 # pypdf>=4.0
