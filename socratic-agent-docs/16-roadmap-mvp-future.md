@@ -10,7 +10,7 @@ Durations are indicative for a team of one or two developers. Adjust them to the
 
 | Phase | Name | Main tasks | Deliverables | Exit criteria | Duration |
 |---|---|---|---|---|---|
-| 1 | Project setup and authentication | Create the repository, `backend/` and `frontend/` skeletons, linting, CI, `.env.example`, Docker Compose for PostgreSQL. Implement register, login, refresh, `/users/me`, JWT dependencies. Build login and registration pages and the BFF. | Running skeleton. Working auth end to end. | A user can register, log in and see a protected page. CI is green. | 1-2 weeks |
+| 1 | Project setup and authentication | Create the repository, `backend/` and `frontend/` skeletons, linting, CI, `.env.example`, local PostgreSQL database. Implement register, login, refresh, `/users/me`, JWT dependencies. Build login and registration pages and the BFF. | Running skeleton. Working auth end to end. | A user can register, log in and see a protected page. CI is green. | 1-2 weeks |
 | 2 | PostgreSQL database and SQLAlchemy models | Implement all models (Section 7.2). Create the Alembic initial migration. Seed script. Constraint and cascade tests. | Migrated schema. Seed data. DB tests. | `alembic upgrade head` works. Schema matches Section 7.1. DB tests pass. | 1 week |
 | 3 | FastAPI APIs | Subjects, sessions, messages (store only), assessments (read), progress (read), users, health. Error handling, rate limit, request ID. API tests. | OpenAPI documentation. API test suite. | All non-AI endpoints work. Authorization tests pass. | 2 weeks |
 | 4 | Next.js frontend | Dashboard, subjects, chat UI, session history, progress page, admin pages (subjects, users). React Query hooks. Frontend tests. | Complete UI with a fake or stub reply. | A student can run a session with a stub agent end to end. | 2 weeks |
@@ -19,7 +19,7 @@ Durations are indicative for a team of one or two developers. Adjust them to the
 | 7 | RAG integration | Vector store interface, FAISS store, loaders, chunking, ingestion task, retriever, admin document pages, retrieval tester, `RAG_ENABLED` flag. | Documents improve answers. | Retrieval gold set meets the targets. Tutoring works with RAG off and on. | 2 weeks |
 | 8 | Progress tracking | Mastery update, strengths and weaknesses, progress dashboard, trend chart, history filters. | Complete progress features. | Mastery and counters match Section 15.6 in tests. | 1 week |
 | 9 | Testing | Fill test gaps. AI evaluation set and report. E2E tests. Security review. Performance check. Accessibility check. | Test reports. Evaluation report. | Quality gates in Section 24.10 pass. | 2 weeks |
-| 10 | Deployment | Dockerfile, Vercel and Railway/Render setup, migrations on deploy, monitoring, backups, smoke test, user guide. | Production system. | The smoke test passes in production. The monitoring is active. | 1 week |
+| 10 | Deployment | Backend service setup (`uv run uvicorn`, no Docker), Vercel and Railway/Render setup, migrations on deploy, monitoring, backups, smoke test, user guide. | Production system. | The smoke test passes in production. The monitoring is active. | 1 week |
 
 Total: about 16 weeks. Phases 3 and 4 can overlap. Phase 7 can move after the MVP release (Section 30).
 
@@ -40,7 +40,7 @@ The MVP is the smallest release that shows the core value: a student learns thro
 | 5 | Conversation history | All messages saved. Session list and read-only view. |
 | 6 | PostgreSQL persistence | All tables in Section 5. Alembic migrations. |
 | 7 | Basic progress tracking | Mastery per subject, topics counts, level, strengths and weaknesses, session summary. |
-| 8 | LLM integration | LangChain with one provider (OpenAI or Claude). Ollama optional. |
+| 8 | LLM integration | LangChain with Groq or Gemini (OpenAI/Anthropic also supported). |
 
 ### 30.2 Not in the MVP
 

@@ -32,11 +32,11 @@ Ask the instructor for:
 
 | # | Task | Where | Notes |
 |---|---|---|---|
-| 1 | Backend Dockerfile | `backend/Dockerfile` | From §28.4. Install the **CPU** build of PyTorch to keep the image small. Run one worker (`--workers 1`). Use `${PORT}`. |
-| 2 | Local Docker test | terminal | `docker build -t socratic-api backend` and run it with a `.env` file. `/api/v1/health` must work. |
+| 1 | Backend start command | host dashboard | From §28.4: `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1` (no Docker). Install the **CPU** build of PyTorch for the RAG dependencies. Run one worker (`--workers 1`). Use `${PORT}`. |
+| 2 | Local service test | terminal | Run the backend with `uv run uvicorn ...` and a `.env` file. `/api/v1/health` must work. |
 | 3 | Production settings | `core/config.py` (check) | `APP_ENV=production` disables `/docs`. CORS only for the Vercel domain. Check that the `DATABASE_URL` converter works for the host's URL format. |
 | 4 | Managed database | host dashboard | Create PostgreSQL. Copy the connection URL. Check that backups are on. |
-| 5 | Backend service | host dashboard | Deploy from GitHub (root `backend`, Dockerfile). Add a **persistent volume** at `/data`. Set the variables of §28.3 (`FAISS_INDEX_DIR=/data/faiss`, `RAG_ENABLED` as the instructor decides, secrets as secrets). |
+| 5 | Backend service | host dashboard | Deploy from GitHub (root `backend`, start command from task 1, no Dockerfile). Add a **persistent volume** at `/data`. Set the variables of §28.3 (`FAISS_INDEX_DIR=/data/faiss`, `RAG_ENABLED` as the instructor decides, secrets as secrets). |
 | 6 | Pre-deploy migration | host dashboard | Pre-deploy or release command: `alembic upgrade head`. Health check path: `/api/v1/health`. |
 | 7 | First data | host shell | `python scripts/seed.py`, then `python scripts/create_admin.py --email <instructor email>`. |
 | 8 | Frontend project | Vercel | Import the repository (root `frontend`). Set `BACKEND_API_URL` (server-side only, no `NEXT_PUBLIC_` prefix). Deploy. |
@@ -46,7 +46,7 @@ Ask the instructor for:
 | 12 | Monitoring | external | Add an uptime monitor for `/api/v1/health` (any free service). Look at the log viewer once for JSON logs with `request_id`. |
 | 13 | Spending limit | LLM provider console | Confirm the monthly limit and an alert. |
 | 14 | Smoke test | `docs/smoke-test.md` | Write the checklist (below) and run it on production. |
-| 15 | Rollback test | hosts | Practice once: promote the previous Vercel deployment, and redeploy the previous backend image. Write the steps in `docs/rollback.md`. |
+| 15 | Rollback test | hosts | Practice once: promote the previous Vercel deployment, and redeploy the previous backend commit. Write the steps in `docs/rollback.md`. |
 | 16 | Runbook | `docs/runbook.md` | One page: where the logs are, how to restart, how to rebuild the FAISS index (`reindex.py`), how to rotate the JWT secret and the LLM key, who to call. |
 
 ## 9.5 Environment Variables Checklist

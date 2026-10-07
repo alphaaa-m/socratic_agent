@@ -27,7 +27,7 @@ grep -rn "TODO(phase-4)" backend
 
 | # | Task | File | Notes |
 |---|---|---|---|
-| 1 | Model factory | `app/agents/llm_factory.py` | `build_chat_model(settings, temperature)` for `openai`, `anthropic`, `ollama` (§16.7). Import the provider package **inside** the branch so only the used package must be installed. |
+| 1 | Model factory | `app/agents/llm_factory.py` | `build_chat_model(settings, temperature)` for `groq`, `gemini` (`openai`, `anthropic` also supported) (§16.7). Import the provider package **inside** the branch so only the used package must be installed. |
 | 2 | LangChain gateway | `app/agents/llm_gateway.py` → `LangChainGateway` | `generate_reply` with `with_structured_output(TutorReply)`. Add the retry policy with `tenacity` (3 attempts, exponential wait, retry only timeouts, rate limits, connection and 5xx errors). Convert the final failure to `LLMUnavailableError` or `LLMTimeoutError`. If you use `tenacity`, set `max_retries=0` in the model. |
 | 3 | Agent factory | `app/agents/factory.py` | Use `LangChainGateway` when `LLM_PROVIDER != "fake"`. Keep the optional `gateway` argument for tests. |
 | 4 | Prompt texts | `app/agents/prompts/` | System prompt (§16.2), context template (§16.3), mode instructions (§16.4), output requirements (§16.5). Keep texts in files, not inside functions. |
@@ -81,7 +81,7 @@ grep -rn "TODO(phase-4)" backend
 2. Try the three "attack" prompts. Show the replies.
 3. Press the hint button three times. Show the three levels.
 4. Show the leak guard test and the prompt that the model received (print or log in debug mode).
-5. Switch the provider in `.env` (or use Ollama) and show that the code did not change.
+5. Switch the provider in `.env` (groq vs gemini) and show that the code did not change.
 
 ## 4.8 Common Mistakes
 

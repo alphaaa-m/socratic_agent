@@ -12,9 +12,10 @@
 |---|---|
 | Git | Current |
 | Python | 3.12 or newer |
+| `uv` | Current (Python package manager, replaces `pip`) |
 | Node.js | 20 LTS or newer |
-| Docker and Docker Compose | Current (for PostgreSQL) |
-| An LLM API key (OpenAI or Anthropic) or Ollama | - |
+| Local PostgreSQL | 15 or newer (no Docker) |
+| A Groq or Gemini API key | - |
 
 ### 32.2 Repository Layout
 
@@ -22,7 +23,6 @@
 socratic-agent/
 ├── backend/
 ├── frontend/
-├── docker-compose.yml
 ├── .github/workflows/ci.yml
 ├── .gitignore
 └── README.md
@@ -37,36 +37,19 @@ cd socratic-agent
 
 ### 32.4 PostgreSQL Setup
 
-```yaml
-# docker-compose.yml
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: socratic
-      POSTGRES_PASSWORD: socratic
-      POSTGRES_DB: socratic
-    ports: ["5432:5432"]
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U socratic"]
-      interval: 5s
-      retries: 10
-volumes:
-  pgdata:
-```
+Use the local PostgreSQL service (no Docker). Create the single database once:
 
 ```bash
-docker compose up -d db
+psql -U postgres -c "CREATE DATABASE socratic_agent OWNER postgres"
+pg_isready -h localhost -p 5432        # must report "accepting connections"
 ```
 
 ### 32.5 Backend Setup
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate              # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+uv venv
+uv pip install -r requirements.txt
 cp .env.example .env                   # then edit the values
 ```
 
@@ -74,26 +57,26 @@ Example `.env`:
 
 ```text
 APP_ENV=local
-DATABASE_URL=postgresql://socratic:socratic@localhost:5432/socratic
+DATABASE_URL=postgresql://postgres:postgres123@localhost:5432/socratic_agent
 JWT_SECRET=<output of: openssl rand -hex 32>
 CORS_ORIGINS=["http://localhost:3000"]
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-sonnet-5-5
-ANTHROPIC_API_KEY=<your key>
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=<your key>
 RAG_ENABLED=false
 ```
 
-For OpenAI, set `LLM_PROVIDER=openai`, `LLM_MODEL=<your model name>` and `OPENAI_API_KEY`. For Ollama, set `LLM_PROVIDER=ollama`, `LLM_MODEL=<model you pulled>` and `OLLAMA_BASE_URL=http://localhost:11434`. Start the Ollama server and run `ollama pull <model>` first. Small local models can follow structured output rules less well. Check the evaluation metrics (Section 25) before you use one.
+For Gemini, set `LLM_PROVIDER=gemini`, `LLM_MODEL=<your model name, e.g. gemini-2.0-flash>` and `GOOGLE_API_KEY`. For OpenAI/Anthropic, set `LLM_PROVIDER=openai`/`anthropic` with `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`.
 
 ### 32.6 Database Migrations
 
 ```bash
-alembic upgrade head                                     # apply all migrations
-alembic revision --autogenerate -m "add new column"      # create a migration after a model change
-alembic downgrade -1                                     # undo the last migration
-alembic check                                            # models and migrations must match
-python scripts/seed.py                                   # sample subjects
-python scripts/create_admin.py --email admin@example.com # first administrator (asks for a password)
+uv run alembic upgrade head                           # apply all migrations
+uv run alembic revision --autogenerate -m "add new column"  # create a migration after a model change
+uv run alembic downgrade -1                           # undo the last migration
+uv run alembic check                                  # models and migrations must match
+uv run python scripts/seed.py                         # sample subjects
+uv run python scripts/create_admin.py --email admin@example.com # first administrator (asks for a password)
 ```
 
 Set `target_metadata = Base.metadata` and import `app.models` in `alembic/env.py`. Read the database URL from `Settings`.
@@ -101,7 +84,7 @@ Set `target_metadata = Base.metadata` and import `app.models` in `alembic/env.py
 ### 32.7 Run the Backend
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 # API docs:  http://localhost:8000/docs
 # Health:    http://localhost:8000/api/v1/health
 ```
@@ -141,8 +124,8 @@ The index files are in `FAISS_INDEX_DIR` (one `<subject_id>.faiss` file for each
 
 | Terminal | Command |
 |---|---|
-| 1 | `docker compose up db` |
-| 2 | `cd backend && source .venv/bin/activate && uvicorn app.main:app --reload` |
+| 1 | Ensure local PostgreSQL is running (`pg_isready -h localhost -p 5432`) |
+| 2 | `cd backend && uv run uvicorn app.main:app --reload` |
 | 3 | `cd frontend && npm run dev` |
 
 Open `http://localhost:3000`, register, then promote your user with `create_admin.py` if you need the admin screens.
@@ -152,10 +135,10 @@ Open `http://localhost:3000`, register, then promote your user with `create_admi
 ```bash
 # Backend
 cd backend
-pytest -q                                   # all tests (needs the PostgreSQL service)
-pytest tests/unit -q                        # fast tests only
-pytest --cov=app --cov-report=term-missing
-ruff check . && ruff format --check .
+uv run pytest -q                               # all tests (needs local PostgreSQL, single DB)
+uv run pytest tests/unit -q                    # fast tests only
+uv run pytest --cov=app --cov-report=term-missing
+uv run ruff check . && uv run ruff format --check .
 
 # Frontend
 cd frontend
@@ -189,14 +172,13 @@ Follow Section 28.7. In short: push to `main`. CI runs. Vercel and the backend p
 | Symptom | Likely cause | Action |
 |---|---|---|
 | `401 TOKEN_EXPIRED` in a loop | System clock differs, or the refresh cookie is missing | Check the time. Log in again. |
-| `psycopg` cannot connect | PostgreSQL is not running or `DATABASE_URL` is wrong | `docker compose ps`. Check the URL. |
+| `psycopg` cannot connect | PostgreSQL is not running or `DATABASE_URL` is wrong | Check the service with `pg_isready -h localhost -p 5432`. Check the URL. |
 | `alembic check` shows differences | A model changed without a migration | Create and review a migration. |
 | `503 LLM_UNAVAILABLE` | Wrong or missing API key, provider outage, rate limit | Check the key and the provider status. Check the logs for the provider error. |
 | Agent output fails schema validation often | The model does not support structured output well | Use a stronger model. Lower the temperature. Check the prompt. |
 | Retrieval returns nothing | `RAG_ENABLED=false`, wrong subject, threshold too high, document `failed` | Check the flag, subject and document status. Lower `RAG_MIN_SCORE` for a test. |
 | Retrieval returns nothing after a deploy | The index folder is not on the persistent volume, or the index file is missing | Check the volume mount for `FAISS_INDEX_DIR`. Run `python scripts/reindex.py --all`. |
 | CORS error in the browser | The browser calls the backend directly | Call `/api/proxy/...` (BFF) instead. Check `CORS_ORIGINS`. |
-| Large Docker image | PyTorch GPU build | Install the CPU build (Section 28.4). |
 
 ---
 

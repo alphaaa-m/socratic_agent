@@ -12,7 +12,7 @@ Build the base that all student phases use. At the end of Phase 0, a student can
 
 | # | Deliverable | Done when |
 |---|---|---|
-| 1 | PostgreSQL in Docker (development and test databases) | `docker compose up -d db` works. Both databases exist. |
+| 1 | Local PostgreSQL (single `socratic_agent` database, no Docker) | `pg_isready` works. The database exists. |
 | 2 | Complete schema: 9 tables, constraints, indexes, triggers | `alembic upgrade head` creates the schema in §7.1. `alembic check` is clean. |
 | 3 | SQLAlchemy models (complete) | All models from §7.2 are in `app/models/`. |
 | 4 | Seed and admin scripts | `scripts/seed.py` and `scripts/create_admin.py` work. |
@@ -66,7 +66,7 @@ socratic-agent/
 │   ├── services/ hooks/ lib/             ✅ http.ts, query client. 📝 feature files
 │   ├── types/api.ts                      ✅
 │   └── middleware.ts                     🧩 (phase 1)
-├── docker-compose.yml  docker/initdb/    ✅
+├── .github/workflows/ci.yml              ✅ (apt PostgreSQL + uv, no Docker)
 ├── docs/                                 ✅ copy of socratic-agent-docs/
 ├── .github/workflows/ci.yml              ✅
 ├── .github/pull_request_template.md      ✅
@@ -79,7 +79,7 @@ socratic-agent/
 
 ```bash
 mkdir socratic-agent && cd socratic-agent && git init -b main
-mkdir backend frontend docs docker/initdb .github/workflows
+mkdir backend frontend docs .github/workflows
 cp -r <path>/socratic-agent-docs/* docs/
 ```
 
@@ -87,34 +87,21 @@ Add a `.gitignore` for Python, Node, `.env`, `.env.local`, `data/`, `.venv/`, `.
 
 ### Step 2: PostgreSQL
 
-Use `docker-compose.yml` from the design document (§32.4). Add an init script that also creates the test database.
-
-```sql
--- docker/initdb/01-create-test-db.sql
-CREATE DATABASE socratic_test OWNER socratic;
-```
-
-```yaml
-# add to the db service in docker-compose.yml
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
-```
+Use the local PostgreSQL service (no Docker). There is one database for everything, including tests (tests use savepoint rollback, so they never touch committed data).
 
 ```bash
-docker compose up -d db
-docker compose exec db psql -U socratic -l      # socratic and socratic_test must show
+psql -U postgres -c "CREATE DATABASE socratic_agent OWNER postgres"
+pg_isready -h localhost -p 5432        # must report "accepting connections"
+psql -U postgres -l                    # socratic_agent must show
 ```
-
-> The init scripts run only on the **first** start of an empty volume. To re-run them: `docker compose down -v`.
 
 ### Step 3: Backend base
 
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate
-# create requirements.txt from the design document §19.6 (remove langchain-chroma and chromadb)
-pip install -r requirements.txt
+uv venv
+# create requirements.txt from the design document §19.6
+uv pip install -r requirements.txt
 mkdir -p app/{api/v1,models,schemas,services,agents/{capabilities,prompts},rag,database,auth,core} \
          scripts tests/{unit,api,db,integration,rag,ai}
 find app tests -type d -exec touch {}/__init__.py \;
@@ -244,10 +231,10 @@ Then edit the generated file by hand:
 3. Check `document_chunks.vector_id` is `GENERATED ALWAYS AS IDENTITY`.
 
 ```bash
-alembic upgrade head
-alembic check                      # must say: No new upgrade operations detected
-alembic downgrade base && alembic upgrade head      # round trip must work
-docker compose exec db psql -U socratic -d socratic -c '\dt'      # 9 tables + alembic_version
+uv run alembic upgrade head
+uv run alembic check                 # must say: No new upgrade operations detected
+uv run alembic downgrade base && uv run alembic upgrade head  # round trip must work
+psql -U postgres -d socratic_agent -c '\dt'   # 9 tables + alembic_version
 ```
 
 > **Verification tip:** also run the raw SQL from §7.1 on an empty scratch database. Compare with `pg_dump --schema-only` of the Alembic database. The constraint and index names must match.
@@ -419,7 +406,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 os.environ.setdefault("APP_ENV", "test")
-os.environ.setdefault("DATABASE_URL", "postgresql://socratic:socratic@localhost:5432/socratic_test")
+# Single shared database (no separate test DB): ensure schema exists, never drop it.
+os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/socratic_agent")
 os.environ.setdefault("JWT_SECRET", "test-secret-test-secret-test-secret-12")
 os.environ.setdefault("LLM_PROVIDER", "fake")
 os.environ.setdefault("LLM_MODEL", "fake")
@@ -435,8 +423,7 @@ def engine():
     url = get_settings().database_url
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "head")   # ensure schema exists; never downgrade the shared DB
     return create_engine(url)
 
 
@@ -524,7 +511,7 @@ Check: `npm run dev` shows the app shell, every page shows a "TODO phase N" box,
 
 ### Step 11: CI
 
-Use the workflow from §28.8. Change the backend env: `LLM_PROVIDER: fake`, `LLM_MODEL: fake`, `DATABASE_URL` for the CI database. Keep the coverage gate off until Phase 8 (`--cov-fail-under` removed).
+Use the workflow from §28.8 (apt-installed PostgreSQL + `uv`, no Docker). Change the backend env: `LLM_PROVIDER: fake`, `LLM_MODEL: fake`, `DATABASE_URL` for the single `socratic_agent` database. Keep the coverage gate off until Phase 8 (`--cov-fail-under` removed).
 
 ### Step 12: Student onboarding files
 
@@ -559,14 +546,14 @@ In `pytest.ini`, set `addopts = -m "not phase1 and not phase2 and ..."` for CI o
 
 Run this on a **fresh clone** on another machine before you give the repository to students.
 
-- [ ] `docker compose up -d db` starts PostgreSQL. `socratic` and `socratic_test` exist.
-- [ ] `cd backend && pip install -r requirements.txt` works.
-- [ ] `alembic upgrade head` creates 9 tables. `alembic check` is clean. Downgrade and upgrade work.
+- [ ] Local PostgreSQL is running (`pg_isready`). The `socratic_agent` database exists.
+- [ ] `cd backend && uv venv && uv pip install -r requirements.txt` works.
+- [ ] `uv run alembic upgrade head` creates 9 tables. `uv run alembic check` is clean. Downgrade and upgrade work.
 - [ ] The schema matches §7.1 (constraint and index names compared).
-- [ ] `python scripts/seed.py` creates 3 subjects. `python scripts/create_admin.py --email ...` creates an admin.
-- [ ] `uvicorn app.main:app --reload` starts. `/api/v1/health` returns `ok`. `/docs` shows **all** endpoints and schemas.
+- [ ] `uv run python scripts/seed.py` creates 3 subjects. `uv run python scripts/create_admin.py --email ...` creates an admin.
+- [ ] `uv run uvicorn app.main:app --reload` starts. `/api/v1/health` returns `ok`. `/docs` shows **all** endpoints and schemas.
 - [ ] An unfinished endpoint returns `501 NOT_IMPLEMENTED` with the TODO text.
-- [ ] `pytest -q` passes. `ruff check .` passes.
+- [ ] `uv run pytest -q` passes. `uv run ruff check .` passes.
 - [ ] `cd frontend && npm install && npm run dev` starts. All pages show their TODO placeholder.
 - [ ] `npm run lint`, `npx tsc --noEmit`, `npm test` pass.
 - [ ] CI is green on `main`.
@@ -589,7 +576,7 @@ Run this on a **fresh clone** on another machine before you give the repository 
 | Problem | Cause | Fix |
 |---|---|---|
 | `alembic check` shows differences after autogenerate | Index with `DESC`, identity column or `server_default` text differ | Edit the migration by hand. Compare with §7.1. |
-| Tests fail with "database does not exist" | The init script did not run | `docker compose down -v` then `up -d db`. |
+| Tests fail with "database does not exist" | The database was not created | `psql -U postgres -c "CREATE DATABASE socratic_agent OWNER postgres"`. |
 | `create_admin.py` fails on import | `passwords.py` is still a stub | Implement `hash_password` (Step 5 note). |
 | `/docs` is missing endpoints | A router is not included in `router.py` | Include all routers. |
 | Savepoint errors in tests | SQLAlchemy older than 2.0 | Use SQLAlchemy 2.x (`join_transaction_mode`). |

@@ -40,7 +40,7 @@ backend/
 │   │   ├── socratic_agent.py        # facade: handle_turn, summarize
 │   │   ├── schemas.py               # AgentState, EvaluationResult, TutorReply ...
 │   │   ├── llm_gateway.py           # LLMGateway protocol + LangChainGateway
-│   │   ├── llm_factory.py           # build_chat_model (OpenAI, Anthropic, Ollama)
+│   │   ├── llm_factory.py           # build_chat_model (Groq, Gemini, OpenAI, Anthropic)
 │   │   ├── capabilities/
 │   │   │   ├── dialogue_engine.py   # incl. answer-leak guard
 │   │   │   ├── level_estimator.py
@@ -75,7 +75,6 @@ backend/
 ├── tests/
 │   ├── conftest.py
 │   ├── unit/  api/  db/  integration/  rag/  ai/
-├── Dockerfile
 ├── requirements.txt
 └── .env.example
 ```
@@ -119,14 +118,15 @@ class Settings(BaseSettings):
     access_token_minutes: int = 30
     refresh_token_days: int = 7
 
-    llm_provider: Literal["openai", "anthropic", "ollama"] = "openai"
+    llm_provider: Literal["openai", "anthropic", "groq", "gemini"] = "groq"
     llm_model: str
     llm_temperature: float = 0.3
     llm_timeout_seconds: int = 30
     llm_max_retries: int = 2
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
-    ollama_base_url: str = "http://localhost:11434"
+    groq_api_key: SecretStr | None = None
+    google_api_key: SecretStr | None = None  # Gemini via langchain-google-genai
 
     rag_enabled: bool = False
     faiss_index_dir: str = "./data/faiss"
@@ -321,7 +321,8 @@ langchain-core>=0.3
 langchain-community>=0.3
 langchain-openai>=0.2
 langchain-anthropic>=0.3
-langchain-ollama>=0.2
+langchain-groq>=0.2
+langchain-google-genai>=2.0
 langchain-huggingface>=0.1
 sentence-transformers>=3.0
 pypdf>=4.0

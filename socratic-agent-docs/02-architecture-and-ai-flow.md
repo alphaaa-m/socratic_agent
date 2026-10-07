@@ -51,7 +51,7 @@ flowchart TD
     SVC -->|in-process call| AG[Socratic Agent]
     AG --> CAP[Internal capabilities<br/>Dialogue, Level, Evaluation, Adaptive,<br/>Hint, Memory, RAG, Prompt,<br/>Misconception, Summary]
     CAP --> LC[LangChain]
-    LC --> LLM[(LLM API or Ollama)]
+    LC --> LLM[(LLM API: Groq or Gemini)]
     LC --> EMB[Embedding Model]
     LC --> VS[(FAISS index)]
     SVC -->|SQLAlchemy| PG[(PostgreSQL)]

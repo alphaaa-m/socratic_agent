@@ -630,9 +630,14 @@ def build_chat_model(s: Settings, temperature: float) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(model=s.llm_model, temperature=temperature, timeout=s.llm_timeout_seconds,
                              max_retries=s.llm_max_retries, api_key=s.anthropic_api_key)
-    if s.llm_provider == "ollama":
-        from langchain_ollama import ChatOllama
-        return ChatOllama(model=s.llm_model, temperature=temperature, base_url=s.ollama_base_url)
+    if s.llm_provider == "groq":
+        from langchain_groq import ChatGroq
+        return ChatGroq(model=s.llm_model, temperature=temperature, timeout=s.llm_timeout_seconds,
+                        max_retries=s.llm_max_retries, api_key=s.groq_api_key)
+    if s.llm_provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(model=s.llm_model, temperature=temperature, timeout=s.llm_timeout_seconds,
+                                      max_retries=s.llm_max_retries, api_key=s.google_api_key)
     raise ValueError(f"Unknown LLM provider: {s.llm_provider}")
 ```
 

@@ -57,7 +57,7 @@ The system must:
 | A-01 | The project proposal was not attached to the request. This document uses the concept and core workflow as described in the request. Change the document if the proposal differs. |
 | A-02 | The student uses a modern web browser and has an internet connection. |
 | A-03 | One tutoring session covers one learning goal (topic). |
-| A-04 | An external LLM API is available. Ollama is an optional local alternative. |
+| A-04 | An external LLM API is available (Groq or Gemini; OpenAI/Anthropic also supported). |
 | A-05 | Course documents are text-based and in a language the LLM supports. |
 | C-01 | The stack in Section 2 is fixed. |
 | C-02 | The architecture uses one agent. |
@@ -73,9 +73,9 @@ The system must:
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2.x, Pydantic v2 | REST API, business logic, validation |
 | Database | PostgreSQL 15+ with SQLAlchemy ORM, Alembic | Persistent data and migrations |
 | Authentication | JWT (access and refresh tokens), Argon2 password hashing | Identity and access control |
-| AI layer | LangChain, LLM API (OpenAI GPT or Claude), Ollama (optional local LLM) | Language model access |
-| RAG | Sentence embeddings (`sentence-transformers`), **FAISS** (vectors), PostgreSQL (chunk text) | Retrieval of course material |
-| Development | Git, GitHub, GitHub Actions | Version control and CI |
+| AI layer | LangChain, LLM API (Groq or Gemini; OpenAI/Anthropic also supported) | Language model access |
+| RAG | HuggingFace sentence embeddings (`sentence-transformers`), **FAISS** (vectors), PostgreSQL (chunk text) | Retrieval of course material |
+| Development | Git, GitHub, GitHub Actions, `uv` (Python packages) | Version control and CI |
 | Deployment | Vercel (Next.js), Railway or Render (FastAPI), managed PostgreSQL | Hosting |
 
 ### 2.1 Technology Decisions

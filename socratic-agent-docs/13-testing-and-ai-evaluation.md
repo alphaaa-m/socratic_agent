@@ -12,7 +12,7 @@
 |---|---|---|---|
 | Unit | Pure logic: adaptive controller, level estimator, mastery, leak guard, chunking, prompt builder, JWT, password hashing | `pytest` | Each commit |
 | API | Routers, auth, validation, status codes, error format | `pytest`, FastAPI `TestClient`, fake `LLMGateway` | Each commit |
-| Database | Models, constraints, cascades, indexes, migrations | `pytest`, real PostgreSQL (Docker service) | Each commit |
+| Database | Models, constraints, cascades, indexes, migrations | `pytest`, real local PostgreSQL (single DB) | Each commit |
 | Integration | Service layer with real database, fake LLM and in-memory or temp vector store | `pytest` | Each commit |
 | Frontend | Components, hooks, forms, BFF route handlers | Vitest, React Testing Library, MSW | Each commit |
 | RAG | Chunking, ingestion, retrieval quality | `pytest`, small gold dataset | Each commit (fast), nightly (full) |
@@ -159,7 +159,7 @@ Offline tests use **recorded** model outputs (fixtures). Live tests run nightly 
 | Admin | Log in as admin, create a subject, upload a document, wait for `indexed`, run the retrieval test, delete the document. |
 | Authorization | A student cannot open `/admin/*`. A student cannot read another student's session (`404`). |
 
-E2E tests run against a test stack (Docker Compose) with the fake LLM gateway (`LLM_PROVIDER=fake` in the `test` environment).
+E2E tests run against a local test stack (local PostgreSQL + backend + frontend) with the fake LLM gateway (`LLM_PROVIDER=fake` in the `test` environment). Provide a script `scripts/e2e.sh` to start it (no Docker).
 
 ### 24.10 Quality Gates
 

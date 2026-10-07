@@ -71,7 +71,7 @@ grep -rn "TODO(phase-3)" backend frontend
 | Second message | Student message type `response`. |
 | Ordering | `GET messages` returns time order. Pagination works. |
 | Ownership | Another user gets `404` on list and send. |
-| Inactive session | `409 SESSION_NOT_ACTIVE` (set the status in the test database). |
+| Inactive session | `409 SESSION_NOT_ACTIVE` (set the status directly in the database). |
 | Validation | Empty text and text over 4000 characters give `422`. |
 | Atomicity | `fake_gateway.fail_next("generate_reply")` → `503`, and **no** message rows exist. |
 | Turn conflict | Change `agent_state.turn_index` between the read phase and the write phase (patch `_load_context`). Result: `409 TURN_CONFLICT` and nothing saved. |

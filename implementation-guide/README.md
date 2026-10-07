@@ -24,7 +24,7 @@ The student never changes the database schema. The student never rebuilds the sk
 | 6 | [phase-6-summary-and-progress.md](phase-6-summary-and-progress.md) | Student | End session, summary, mastery, progress dashboard, history detail, account deletion | §15.6, §18.6, §18.9, §9.13-9.15 | 1 week |
 | 7 | [phase-7-rag-faiss.md](phase-7-rag-faiss.md) | Student | Document upload, ingestion, FAISS index, retriever, admin pages | §17, §18.10 | 2 weeks |
 | 8 | [phase-8-testing-and-evaluation.md](phase-8-testing-and-evaluation.md) | Student | Coverage, E2E tests, AI evaluation set, security and accessibility checks | §24-26 | 1-2 weeks |
-| 9 | [phase-9-deployment.md](phase-9-deployment.md) | Student | Docker, Vercel, Railway or Render, migrations on deploy, smoke test | §28 | 1 week |
+| 9 | [phase-9-deployment.md](phase-9-deployment.md) | Student | Backend service (uv, no Docker), Vercel, Railway or Render, migrations on deploy, smoke test | §28 | 1 week |
 
 Total for the student: about 11-13 weeks. The times are indicative.
 

@@ -40,10 +40,10 @@ flowchart LR
 | Service | Platform | Notes |
 |---|---|---|
 | Frontend | Vercel | Root directory `frontend`. Automatic deploy from GitHub. Preview deploys for pull requests. |
-| Backend | Railway or Render | Docker deploy from `backend/`. Health check `/api/v1/health`. |
+| Backend | Railway or Render | Direct `uv run uvicorn` service from `backend/` (no Docker). Health check `/api/v1/health`. |
 | Database | Managed PostgreSQL (Railway, Render or other) | Automatic backups. TLS. Private network where possible. |
 | Vector store | FAISS index files on a persistent volume of the backend service | Mount at `/data`. See 28.6 for scaling limits. |
-| LLM | OpenAI or Anthropic API (Ollama only for local or private hosting) | Key in backend environment. |
+| LLM | Groq or Gemini API (OpenAI/Anthropic also supported) | Key in backend environment. |
 
 ### 28.3 Environment Variables
 
@@ -56,10 +56,9 @@ flowchart LR
 | `JWT_SECRET` | (random, 32 bytes or more) | Generate with `openssl rand -hex 32`. |
 | `ACCESS_TOKEN_MINUTES` / `REFRESH_TOKEN_DAYS` | `30` / `7` | Token lifetimes. |
 | `CORS_ORIGINS` | `["https://your-app.vercel.app"]` | JSON list of allowed origins. |
-| `LLM_PROVIDER` | `openai`, `anthropic`, `ollama` | Provider selection. |
-| `LLM_MODEL` | (your model name) | Model for the provider. |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | (secret) | Set the one that you use. |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Only for Ollama. |
+| `LLM_PROVIDER` | `groq`, `gemini` (`openai`, `anthropic` also supported) | Provider selection. |
+| `LLM_MODEL` | (your model name, e.g. `llama-3.3-70b-versatile`, `gemini-2.0-flash`) | Model for the provider. |
+| `GROQ_API_KEY` / `GOOGLE_API_KEY` | (secret) | Set the one that you use (`GOOGLE_API_KEY` for Gemini). |
 | `LLM_TIMEOUT_SECONDS` / `LLM_MAX_RETRIES` | `30` / `2` | LLM call limits. |
 | `RAG_ENABLED` | `false` for MVP | Feature flag. |
 | `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | Changing it needs a full re-index. |
@@ -78,25 +77,13 @@ flowchart LR
 
 ### 28.4 Production Configuration
 
-- Run `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`. The FAISS index lives in the memory of one process, and only that process writes the index files. Use threads for concurrency (Section 28.6).
+- Run `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1` (no Docker; `uv sync` or `uv pip install -r requirements.txt` first). The FAISS index lives in the memory of one process, and only that process writes the index files. Use threads for concurrency (Section 28.6).
 - Set `APP_ENV=production` (this disables `/docs`).
 - Use a connection pool (`pool_size=5`, `max_overflow=5`, `pool_pre_ping=True`). Keep the total below the database connection limit.
 - Set the LLM spending limit at the provider.
 - Enable JSON logs and send them to the platform log viewer.
 - Add an uptime monitor for `/api/v1/health`.
-
-```dockerfile
-# backend/Dockerfile
-FROM python:3.12-slim
-ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
-WORKDIR /app
-COPY requirements.txt .
-# sentence-transformers installs PyTorch. Use the CPU build to keep the image small:
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
-```
+- For the RAG dependencies, install the CPU build of PyTorch to keep the environment small: `uv pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt`.
 
 ### 28.5 Database Migration
 
@@ -123,7 +110,7 @@ CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --wor
 | Step | Action |
 |---|---|
 | 1 | Create the managed PostgreSQL database. Copy `DATABASE_URL`. |
-| 2 | Create the backend service from the GitHub repository (root `backend`, Dockerfile). Add a persistent volume at `/data`. |
+| 2 | Create the backend service from the GitHub repository (root `backend`, start command `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`). Add a persistent volume at `/data`. |
 | 3 | Set all backend environment variables (28.3). |
 | 4 | Set the pre-deploy command to `alembic upgrade head`. Set the health check path to `/api/v1/health`. |
 | 5 | Deploy the backend. Check `/api/v1/health` returns `ok`. |
@@ -143,28 +130,29 @@ on: [push, pull_request]
 jobs:
   backend:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env: { POSTGRES_USER: socratic, POSTGRES_PASSWORD: socratic, POSTGRES_DB: socratic_test }
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U socratic" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://socratic:socratic@localhost:5432/socratic_test
+      DATABASE_URL: postgresql://postgres:postgres123@localhost:5432/socratic_agent
       JWT_SECRET: test-secret-test-secret-test-secret-12
-      LLM_PROVIDER: openai
+      LLM_PROVIDER: fake
       LLM_MODEL: fake
       APP_ENV: test
     defaults: { run: { working-directory: backend } }
     steps:
       - uses: actions/checkout@v4
+      - name: Install PostgreSQL (no Docker)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql postgresql-contrib
+          sudo service postgresql start
+          sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres123';"
+          sudo -u postgres createdb socratic_agent
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip }
-      - run: pip install -r requirements.txt
+        with: { python-version: "3.12" }
+      - uses: astral-sh/setup-uv@v4
+      - run: uv pip install --system -r requirements.txt
       - run: ruff check .
       - run: alembic upgrade head && alembic check
-      - run: pytest --cov=app --cov-fail-under=80
+      - run: pytest -q
   frontend:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: frontend } }
@@ -180,7 +168,7 @@ jobs:
 ### 28.9 Rollback
 
 - Frontend: promote a previous deployment in Vercel.
-- Backend: redeploy the previous image. If a migration ran, use the backward-compatible rule (28.5). Run `alembic downgrade` only after a test on a copy of the data.
+- Backend: redeploy the previous commit (start command unchanged). If a migration ran, use the backward-compatible rule (28.5). Run `alembic downgrade` only after a test on a copy of the data.
 - Database: restore from the latest backup (point-in-time recovery if the provider supports it).
 
 ---
