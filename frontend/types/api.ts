@@ -1,0 +1,50 @@
+export type Level = "beginner" | "intermediate" | "advanced";
+export type SessionStatus = "active" | "completed" | "abandoned";
+export type MessageType = "question" | "response" | "guidance" | "hint" | "summary" | "system";
+
+export interface Message {
+  id: string;
+  session_id: string;
+  sender: "student" | "agent" | "system";
+  message_type: MessageType;
+  content: string;
+  created_at: string;
+}
+
+export interface Assessment {
+  id: string;
+  session_id: string;
+  message_id: string;
+  correctness_score: number;
+  reasoning_score: number;
+  confidence_score: number;
+  difficulty_level: number;
+  misconception: string | null;
+  feedback: string | null;
+  resolves_goal: boolean;
+  created_at: string;
+}
+
+export interface SessionState {
+  status: SessionStatus;
+  difficulty: number;
+  hint_level: number;
+  resolved: boolean;
+  learner_level: Level;
+  rag_status: "off" | "ok" | "empty" | "error";
+}
+
+export interface SendMessageResponse {
+  student_message: Message;
+  agent_message: Message;
+  assessment: Assessment | null;
+  session_state: SessionState;
+}
+
+export interface Subject {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+}
