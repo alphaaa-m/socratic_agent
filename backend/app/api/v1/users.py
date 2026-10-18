@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.api.deps import DB, AdminUser, CurrentUser
 from app.schemas.common import Page
@@ -50,7 +50,7 @@ def delete_me(user: CurrentUser, db: DB):
 def get_my_profile(user: CurrentUser, db: DB):
     from app.services.user_service import UserService
 
-    return UserService(db).get_profile(user)
+    return UserService(db).get_learner_profile(user)
 
 
 @router.patch("/users/me/profile", response_model=LearnerProfileResponse)
@@ -61,10 +61,17 @@ def update_my_profile(body: LearnerProfileUpdateRequest, user: CurrentUser, db: 
 
 
 @router.get("/users", response_model=Page[UserResponse])
-def list_users(user: AdminUser, db: DB, limit: int = 20, offset: int = 0):
+def list_users(
+    user: AdminUser,
+    db: DB,
+    role: str | None = None,
+    q: str | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
     from app.services.user_service import UserService
 
-    return UserService(db).list_users(limit=limit, offset=offset)
+    return UserService(db).list_users(role=role, q=q, limit=limit, offset=offset)
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)

@@ -47,6 +47,10 @@ class UnauthenticatedError(AppError):
     status_code, code, message = 401, "UNAUTHENTICATED", "Authentication is required."
 
 
+class BadRequestError(AppError):
+    status_code, code, message = 400, "BAD_REQUEST", "The request is not valid."
+
+
 class ForbiddenError(AppError):
     status_code, code, message = 403, "FORBIDDEN", "You do not have access."
 

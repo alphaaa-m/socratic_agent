@@ -1,8 +1,9 @@
 """Auth endpoints (docs Sec 18.3) -- Phase 1."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.api.deps import DB
+from app.core.rate_limit import limiter, login_rate_limit_key
 from app.schemas.auth import (
     LoginRequest,
     RefreshRequest,
@@ -22,7 +23,8 @@ def register(body: RegisterRequest, db: DB):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: DB):
+@limiter.limit("5/minute", key_func=login_rate_limit_key)
+def login(request: Request, body: LoginRequest, db: DB):
     from app.services.auth_service import AuthService
 
     return AuthService(db).login(body.email, body.password)

@@ -18,5 +18,6 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const err = body?.error ?? {};
     throw new ApiError(res.status, err.code ?? "UNKNOWN", err.message ?? "Request failed");
   }
+  if (res.status === 204) return undefined as T;
   return body as T;
 }

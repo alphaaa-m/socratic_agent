@@ -1,17 +1,28 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.schemas.validators import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    check_password_strength,
+)
 
 
 class RegisterRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    email: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=8, max_length=128)
+    email: EmailStr
+    password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
+
+    @field_validator("password")
+    @classmethod
+    def _password_strength(cls, value: str) -> str:
+        return check_password_strength(value)
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=1, max_length=128)
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH)
 
 
 class RefreshRequest(BaseModel):

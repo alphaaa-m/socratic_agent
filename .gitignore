@@ -16,6 +16,7 @@ node_modules/
 out/
 dist/
 *.log
+*.tsbuildinfo
 
 # Data / local
 data/

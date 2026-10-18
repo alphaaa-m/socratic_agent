@@ -50,6 +50,20 @@ class Settings(BaseSettings):
                 return "postgresql+psycopg://" + v[len(prefix):]
         return v
 
+    @field_validator("jwt_secret")
+    @classmethod
+    def require_strong_jwt_secret(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value().encode("utf-8")) < 32:
+            raise ValueError("JWT_SECRET must contain at least 32 bytes")
+        return value
+
+    @field_validator("jwt_algorithm")
+    @classmethod
+    def require_hs256(cls, value: str) -> str:
+        if value != "HS256":
+            raise ValueError("JWT_ALGORITHM must be HS256")
+        return value
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -2,9 +2,14 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import ORMModel
+from app.schemas.validators import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    check_password_strength,
+)
 
 
 class UserResponse(ORMModel):
@@ -21,8 +26,15 @@ class UserUpdateRequest(BaseModel):
 
 
 class PasswordChangeRequest(BaseModel):
-    current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
+    current_password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH)
+    new_password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_strength(cls, value: str) -> str:
+        # Same rule as registration (FR-REG-04), so a password can never be
+        # changed into something weaker than what registration would accept.
+        return check_password_strength(value)
 
 
 class AdminUserUpdateRequest(BaseModel):
