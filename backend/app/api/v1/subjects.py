@@ -39,7 +39,7 @@ def create_subject(body: SubjectCreateRequest, user: AdminUser, db: DB):
 def update_subject(subject_id: UUID, body: SubjectUpdateRequest, user: AdminUser, db: DB):
     from app.services.subject_service import SubjectService
 
-    return SubjectService(db).update(user, subject_id, body.name, body.description, body.is_active)
+    return SubjectService(db).update(user, subject_id, **body.model_dump(exclude_unset=True))
 
 
 @router.delete("/{subject_id}", status_code=204)

@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.deps import DB, AdminUser, CurrentUser
+from app.models.enums import UserRole
 from app.schemas.common import Page
 from app.schemas.user import (
     AdminUserUpdateRequest,
@@ -64,7 +65,7 @@ def update_my_profile(body: LearnerProfileUpdateRequest, user: CurrentUser, db: 
 def list_users(
     user: AdminUser,
     db: DB,
-    role: str | None = None,
+    role: UserRole | None = None,
     q: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -78,4 +79,4 @@ def list_users(
 def admin_update_user(user_id: UUID, body: AdminUserUpdateRequest, user: AdminUser, db: DB):
     from app.services.user_service import UserService
 
-    return UserService(db).admin_update(user_id, body.role, body.is_active)
+    return UserService(db).admin_update(user, user_id, body.role, body.is_active)

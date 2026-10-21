@@ -1,6 +1,6 @@
 """User/account service -- Phase 1 (account), Phase 2 (admin) (FR-ACC-*)."""
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.auth.passwords import hash_password, verify_password
@@ -61,7 +61,40 @@ class UserService:
         return profile
 
     def list_users(self, role=None, q=None, limit: int = 20, offset: int = 0):
-        raise NotImplementedError("TODO(phase-2): admin list users (FR-ACC-03)")
+        """FR-ACC-03: page through accounts without exposing credential data."""
+        filters = []
+        if role is not None:
+            filters.append(User.role == role)
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            filters.append(or_(User.name.ilike(term), User.email.ilike(term)))
 
-    def admin_update(self, user_id, role=None, is_active=None):
-        raise NotImplementedError("TODO(phase-2): admin change role/disable (FR-ACC-03)")
+        total = self.db.scalar(select(func.count()).select_from(User).where(*filters)) or 0
+        items = list(
+            self.db.scalars(
+                select(User)
+                .where(*filters)
+                .order_by(User.name.asc(), User.id.asc())
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        from app.schemas.common import Page
+
+        return Page(items=items, total=total, limit=limit, offset=offset)
+
+    def admin_update(self, admin: User, user_id, role=None, is_active=None) -> User:
+        """FR-ACC-03: update an account, protecting the acting administrator."""
+        target = self.db.get(User, user_id)
+        if target is None:
+            raise NotFoundError("User not found.")
+        if target.id == admin.id and (role == "student" or is_active is False):
+            raise BadRequestError("Administrators cannot demote or deactivate their own account.")
+
+        if role is not None:
+            target.role = role
+        if is_active is not None:
+            target.is_active = is_active
+        self.db.commit()
+        self.db.refresh(target)
+        return target

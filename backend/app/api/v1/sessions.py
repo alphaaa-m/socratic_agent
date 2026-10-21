@@ -1,10 +1,12 @@
 """Session endpoints (docs Sec 18.6) -- Phase 2 (CRUD), Phase 6 (end/summary)."""
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.api.deps import DB, CurrentUser
+from app.models.enums import SessionStatus
 from app.schemas.common import Page
 from app.schemas.session import (
     SessionCreateRequest,
@@ -28,9 +30,9 @@ def list_sessions(
     user: CurrentUser,
     db: DB,
     subject_id: UUID | None = None,
-    status: str | None = None,
-    limit: int = 20,
-    offset: int = 0,
+    status: SessionStatus | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
     from app.services.session_service import SessionService
 

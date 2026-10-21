@@ -48,3 +48,49 @@ export interface Subject {
   is_active: boolean;
   created_at: string;
 }
+
+export interface SubjectCreateRequest {
+  name: string;
+  description?: string | null;
+}
+
+export interface SubjectUpdateRequest {
+  name?: string;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface LearningSession {
+  id: string;
+  subject_id: string;
+  title: string;
+  status: SessionStatus;
+  started_at: string;
+  ended_at: string | null;
+}
+
+export interface SessionDetail extends LearningSession {
+  agent_state: Record<string, unknown>;
+  summary: Record<string, unknown> | null;
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: "student" | "admin";
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminUserUpdateRequest {
+  role?: User["role"];
+  is_active?: boolean;
+}

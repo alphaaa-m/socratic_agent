@@ -1,21 +1,14 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
-import { api } from "@/services/http";
-
-type CurrentUser = { id: string; name: string; email: string; role: "student" | "admin" };
+import { useCurrentUser } from "@/hooks/useUsers";
 
 export function UserMenu() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["user", "me"],
-    queryFn: () => api<CurrentUser>("users/me"),
-    staleTime: 60_000,
-    retry: false,
-  });
+  const { data: user, isLoading } = useCurrentUser();
 
   async function logout() {
     try {

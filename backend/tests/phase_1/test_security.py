@@ -43,11 +43,12 @@ def test_a_promoted_user_reaches_admin_endpoints_with_an_older_token(client, db,
     user.role = "admin"
     db.commit()
 
-    # The Phase 2 admin endpoint is still a stub, so a 501 (instead of 401/403)
-    # proves the admin dependency let the request through.
+    # GET /users is now fully implemented in Phase 2. A 200 response proves the
+    # admin dependency correctly let the promoted user through even with a token
+    # that predates the role change (FR-JWT-05: database role is authoritative).
     response = client.get("/api/v1/users", headers=auth)
 
-    assert response.status_code == 501, response.text
+    assert response.status_code == 200, response.text
 
 
 def test_disabling_an_account_invalidates_its_existing_token(client, db, account, auth):
