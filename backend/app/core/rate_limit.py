@@ -7,6 +7,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 
+from app.auth.jwt import ACCESS, decode_token
+from app.core.exceptions import UnauthenticatedError
+
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
 
@@ -38,3 +41,17 @@ def login_rate_limit_key(request: Request) -> str:
         email = str(payload.get("email") or "").strip().lower()
 
     return f"{identity}:{email}" if email else identity
+
+
+def message_rate_limit_key(request: Request) -> str:
+    """Rate limit tutor actions per authenticated user (FR-MSG-05)."""
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token:
+        try:
+            return f"user:{decode_token(token, expected_type=ACCESS)['sub']}"
+        except UnauthenticatedError:
+            # Authentication reports the useful error afterwards; the fallback
+            # still protects malformed or expired credential attempts by IP.
+            return get_remote_address(request)
+    return get_remote_address(request)

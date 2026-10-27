@@ -2,13 +2,22 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getCurrentUser, listUsers, type UserFilters, updateUser } from "@/services/users";
+import { getCurrentUser, getLearnerProfile, listUsers, type UserFilters, updateUser } from "@/services/users";
 import type { AdminUserUpdateRequest } from "@/types/api";
 
 export function useCurrentUser() {
   return useQuery({
     queryKey: ["users", "me"],
     queryFn: getCurrentUser,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useLearnerProfile() {
+  return useQuery({
+    queryKey: ["users", "me", "profile"],
+    queryFn: getLearnerProfile,
     staleTime: 60_000,
     retry: false,
   });

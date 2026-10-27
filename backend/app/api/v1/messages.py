@@ -1,11 +1,12 @@
 """Message endpoints (docs Sec 18.7) -- Phase 3."""
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from app.api.deps import DB, CurrentUser
-from app.core.rate_limit import limiter
+from app.core.rate_limit import limiter, message_rate_limit_key
 from app.schemas.common import Page
 from app.schemas.message import (
     HintResponse,
@@ -25,14 +26,20 @@ def _tutoring(db: DB, request: Request):
 
 
 @router.get("/messages", response_model=Page[MessageResponse])
-def list_messages(session_id: UUID, user: CurrentUser, db: DB, limit: int = 50, offset: int = 0):
+def list_messages(
+    session_id: UUID,
+    user: CurrentUser,
+    db: DB,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
     from app.services.tutoring_service import TutoringService
 
     return TutoringService(db).list_messages(user, session_id, limit, offset)
 
 
 @router.post("/messages", response_model=SendMessageResponse, status_code=201)
-@limiter.limit("20/minute")
+@limiter.limit("20/minute", key_func=message_rate_limit_key)
 def send_message(
     request: Request,
     session_id: UUID,
@@ -45,7 +52,7 @@ def send_message(
 
 
 @router.post("/hints", response_model=HintResponse, status_code=201)
-@limiter.limit("20/minute")
+@limiter.limit("20/minute", key_func=message_rate_limit_key)
 def request_hint(request: Request, session_id: UUID, user: CurrentUser, db: DB):
     svc = _tutoring(db, request)
     return svc.handle_hint_request(user, session_id)

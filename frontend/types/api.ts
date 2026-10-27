@@ -41,6 +41,11 @@ export interface SendMessageResponse {
   session_state: SessionState;
 }
 
+export interface HintResponse {
+  agent_message: Message;
+  session_state: SessionState;
+}
+
 export interface Subject {
   id: string;
   name: string;
@@ -88,6 +93,17 @@ export interface User {
   role: "student" | "admin";
   is_active: boolean;
   created_at: string;
+}
+
+export interface LearnerProfile {
+  user_id: string;
+  current_level: Level;
+  level_score: number;
+  assessment_count: number;
+  learning_preferences: Record<string, unknown>;
+  strengths: unknown[];
+  weaknesses: unknown[];
+  total_sessions: number;
 }
 
 export interface AdminUserUpdateRequest {

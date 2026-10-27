@@ -1,10 +1,14 @@
 import { api } from "@/services/http";
-import type { AdminUserUpdateRequest, Page, User } from "@/types/api";
+import type { AdminUserUpdateRequest, LearnerProfile, Page, User } from "@/types/api";
 
 export type UserFilters = { role?: User["role"]; q?: string; limit?: number; offset?: number };
 
 export function getCurrentUser() {
   return api<User>("users/me");
+}
+
+export function getLearnerProfile() {
+  return api<LearnerProfile>("users/me/profile");
 }
 
 export function listUsers(filters: UserFilters = {}) {
