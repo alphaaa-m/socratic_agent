@@ -9,4 +9,5 @@ class AdaptiveController:
         raise NotImplementedError("TODO(phase-5): streaks/difficulty/hint/resolved update")
 
     def select_mode(self, state) -> str:
-        raise NotImplementedError("TODO(phase-5): select ask|hint|worked_analogy|close")
+        """Phase 4 deliberately selects only normal questions or hint rungs."""
+        return "hint" if state.hint_level > 0 else "ask"

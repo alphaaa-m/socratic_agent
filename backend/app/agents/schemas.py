@@ -44,6 +44,11 @@ class TutorReply(BaseModel):
     target_concept: str | None = None
 
 
+class SubjectRelevance(BaseModel):
+    classification: Literal["relevant", "clearly_unrelated", "uncertain"]
+    reason: str
+
+
 class SessionSummary(BaseModel):
     outcome: Literal["resolved", "partial", "unresolved"]
     overview: str

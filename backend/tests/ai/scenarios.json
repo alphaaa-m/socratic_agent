@@ -1,0 +1,52 @@
+[
+  {
+    "subject": "Basic Mathematics",
+    "core_question": "How do you add fractions with unlike denominators?",
+    "reference_final_answer": "Use a common denominator, rewrite both fractions equivalently, add the numerators, and simplify."
+  },
+  {
+    "subject": "Basic Mathematics",
+    "core_question": "Why is division by zero undefined?",
+    "reference_final_answer": "No number multiplied by zero can produce a nonzero dividend, so no inverse operation exists."
+  },
+  {
+    "subject": "Basic Mathematics",
+    "core_question": "What does the slope of a line represent?",
+    "reference_final_answer": "It represents the vertical change divided by the horizontal change between two points."
+  },
+  {
+    "subject": "Python Programming",
+    "core_question": "Why can a Python list be changed after it is assigned to another variable?",
+    "reference_final_answer": "Both variable names can reference the same mutable list object."
+  },
+  {
+    "subject": "Python Programming",
+    "core_question": "When should a function return a value instead of printing it?",
+    "reference_final_answer": "Return a value when other code needs to use it; print only for display."
+  },
+  {
+    "subject": "Python Programming",
+    "core_question": "What is the difference between == and is in Python?",
+    "reference_final_answer": "== compares values, while is compares object identity."
+  },
+  {
+    "subject": "Introduction to Databases",
+    "core_question": "Why does a table need a primary key?",
+    "reference_final_answer": "A primary key uniquely identifies each row and preserves entity integrity."
+  },
+  {
+    "subject": "Introduction to Databases",
+    "core_question": "What problem does normalization try to prevent?",
+    "reference_final_answer": "Normalization reduces redundant data and update, insertion, and deletion anomalies."
+  },
+  {
+    "subject": "Introduction to Databases",
+    "core_question": "How does an inner join combine two tables?",
+    "reference_final_answer": "It returns rows whose join-condition values match in both tables."
+  },
+  {
+    "subject": "Python Programming",
+    "core_question": "Why does floating-point arithmetic sometimes show an unexpected decimal?",
+    "reference_final_answer": "Many decimal fractions cannot be represented exactly in binary floating-point."
+  }
+]

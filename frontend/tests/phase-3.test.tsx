@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { messagesQueryKey, useSendMessage } from "@/hooks/useMessages";
+import { orderMessages } from "@/lib/message-order";
 import type { Message, Page, SendMessageResponse } from "@/types/api";
 
 const sessionId = "session-1";
@@ -93,6 +94,21 @@ describe("Phase 3 chat interface", () => {
     expect(screen.getByLabelText("Tutor is typing")).toBeInTheDocument();
   });
 
+  it("renders student first when response timestamps tie and API ids sort the agent first", () => {
+    const sameTime = "2026-10-21T00:00:01Z";
+    const student = { ...initialMessage, id: "z-student", sender: "student" as const, message_type: "response" as const, content: "I think the denominator stays the same", created_at: sameTime };
+    const agent = { ...initialMessage, id: "a-agent", content: "What happens to both parts?", created_at: sameTime };
+
+    const { container } = render(<ChatWindow isResponding={false} messages={[agent, student]} />);
+
+    const entries = Array.from(container.querySelectorAll("article.message-row"));
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "YouI think the denominator stays the same",
+      "TutorWhat happens to both parts?",
+    ]);
+    expect(orderMessages([agent, student]).map((message) => message.id)).toEqual([student.id, agent.id]);
+  });
+
   it("adds a student message optimistically and replaces it with saved messages", async () => {
     const client = testClient();
     client.setQueryData<Page<Message>>(messagesQueryKey(sessionId), { items: [initialMessage], total: 1, limit: 50, offset: 0 });
@@ -108,6 +124,64 @@ describe("Phase 3 chat interface", () => {
       resolveFetch?.(new Response(JSON.stringify(response("My thought")), { status: 201, headers: { "Content-Type": "application/json" } }));
     });
     await waitFor(() => expect(client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))?.items.map((message) => message.id)).toEqual(["agent-1", "student-1", "agent-2"]));
+  });
+
+  it("deduplicates a refetched response pair and preserves student-first order", async () => {
+    const client = testClient();
+    const sameTime = "2026-10-21T00:00:01Z";
+    const student = { ...initialMessage, id: "z-student", sender: "student" as const, message_type: "response" as const, content: "My thought", created_at: sameTime };
+    const agent = { ...initialMessage, id: "a-agent", content: "What evidence supports that?", created_at: sameTime };
+    client.setQueryData<Page<Message>>(messagesQueryKey(sessionId), { items: [initialMessage], total: 1, limit: 50, offset: 0 });
+    let resolveFetch: ((value: Response) => void) | undefined;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolveFetch = resolve; })));
+    const { result } = renderHook(() => useSendMessage(sessionId), { wrapper: wrapper(client) });
+
+    act(() => result.current.mutate({ content: "My thought" }));
+    await waitFor(() => expect(client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))?.items).toHaveLength(2));
+    client.setQueryData<Page<Message>>(messagesQueryKey(sessionId), {
+      items: [initialMessage, agent, student, ...client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))!.items.filter((message) => message.id.startsWith("optimistic-"))],
+      total: 4,
+      limit: 50,
+      offset: 0,
+    });
+
+    await act(async () => {
+      resolveFetch?.(new Response(JSON.stringify({ ...response("My thought"), student_message: student, agent_message: agent }), { status: 201, headers: { "Content-Type": "application/json" } }));
+    });
+
+    await waitFor(() => {
+      const items = client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))!.items;
+      expect(items.map((message) => message.id)).toEqual(["agent-1", "z-student", "a-agent"]);
+      expect(new Set(items.map((message) => message.id)).size).toBe(items.length);
+    });
+  });
+
+  it("removes only a failed mutation's optimistic message when sends overlap", async () => {
+    const client = testClient();
+    client.setQueryData<Page<Message>>(messagesQueryKey(sessionId), { items: [initialMessage], total: 1, limit: 50, offset: 0 });
+    const resolvers: ((value: Response) => void)[] = [];
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolvers.push(resolve); })));
+    const { result } = renderHook(() => useSendMessage(sessionId), { wrapper: wrapper(client) });
+
+    act(() => result.current.mutate({ content: "First thought" }));
+    await waitFor(() => expect(client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))?.items).toHaveLength(2));
+    act(() => result.current.mutate({ content: "Second thought" }));
+    await waitFor(() => expect(client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))?.items).toHaveLength(3));
+
+    await act(async () => {
+      resolvers[0](new Response(JSON.stringify({ error: { code: "LLM_UNAVAILABLE", message: "Tutor unavailable" } }), { status: 503, headers: { "Content-Type": "application/json" } }));
+      resolvers[1](new Response(JSON.stringify(response("Second thought")), { status: 201, headers: { "Content-Type": "application/json" } }));
+    });
+
+    await waitFor(() => {
+      const items = client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))!.items;
+      expect(items.map((message) => message.content)).toEqual([
+        "What have you noticed?",
+        "Second thought",
+        "What evidence supports that?",
+      ]);
+      expect(items.some((message) => message.content === "First thought")).toBe(false);
+    });
   });
 
   it("restores the cached messages and returns the rejected draft to the caller", async () => {
