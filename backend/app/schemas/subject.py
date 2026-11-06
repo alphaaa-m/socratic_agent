@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from app.schemas.common import ORMModel
 
@@ -22,4 +22,10 @@ class SubjectResponse(ORMModel):
     name: str
     description: str | None
     is_active: bool
+    owner_id: UUID | None = None
     created_at: datetime
+
+    @computed_field
+    @property
+    def is_default(self) -> bool:
+        return self.owner_id is None

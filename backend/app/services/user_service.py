@@ -1,10 +1,13 @@
 """User/account service -- Phase 1 (account), Phase 2 (admin) (FR-ACC-*)."""
 
+from uuid import UUID
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.auth.passwords import hash_password, verify_password
 from app.core.exceptions import BadRequestError, NotFoundError
+from app.core.ids import require_uuid
 from app.models import LearnerProfile, User
 
 
@@ -83,9 +86,9 @@ class UserService:
 
         return Page(items=items, total=total, limit=limit, offset=offset)
 
-    def admin_update(self, admin: User, user_id, role=None, is_active=None) -> User:
+    def admin_update(self, admin: User, user_id: UUID, role=None, is_active=None) -> User:
         """FR-ACC-03: update an account, protecting the acting administrator."""
-        target = self.db.get(User, user_id)
+        target = self.db.get(User, require_uuid(user_id, label="user_id"))
         if target is None:
             raise NotFoundError("User not found.")
         if target.id == admin.id and (role == "student" or is_active is False):

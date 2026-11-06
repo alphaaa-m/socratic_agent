@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.models.learner_profile import LearnerProfile
     from app.models.learning_progress import LearningProgress
     from app.models.learning_session import LearningSession
+    from app.models.subject import Subject
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -32,4 +33,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     progress: Mapped[list["LearningProgress"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+    custom_subjects: Mapped[list["Subject"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan", passive_deletes=True
     )

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 
 import { SubjectGrid } from "@/components/subjects/SubjectGrid";
+import { CreateSubjectForm } from "@/components/subjects/CreateSubjectForm";
 import { useCreateSession } from "@/hooks/useSessions";
 import { useSubjects } from "@/hooks/useSubjects";
 import type { Subject } from "@/types/api";
@@ -25,6 +26,7 @@ export default function SubjectsPage() {
       {isLoading ? <div className="subject-grid skeleton-grid" aria-label="Loading subjects"><div /><div /><div /></div> : null}
       {error ? <p className="form-error" role="alert">{error.message}</p> : null}
       {!isLoading && !error && <SubjectGrid subjects={subjects} onStart={start} isStarting={startSession.isPending} />}
+      {!isLoading && !error && <CreateSubjectForm />}
     </section>
   );
 }

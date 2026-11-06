@@ -12,6 +12,7 @@ export function SubjectCard({ subject, onStart, isStarting }: SubjectCardProps) 
   return (
     <article className="subject-card">
       <div>
+        <p className="eyebrow">{subject.is_default ? "Default" : "Custom"}</p>
         <h2>{subject.name}</h2>
         <p className="muted">{subject.description || "Choose this subject to begin a guided learning session."}</p>
       </div>

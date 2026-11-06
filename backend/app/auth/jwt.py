@@ -19,6 +19,7 @@ from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 from app.core.config import get_settings
 from app.core.exceptions import UnauthenticatedError
+from app.core.ids import parse_uuid
 
 ACCESS = "access"
 REFRESH = "refresh"
@@ -31,6 +32,7 @@ def create_token(user_id: uuid.UUID, role: str, token_type: str, lifetime: timed
     """Create a signed HS256 token for one user."""
     if token_type not in (ACCESS, REFRESH):
         raise ValueError("token_type must be 'access' or 'refresh'")
+    user_id = parse_uuid(user_id, label="user_id")
     settings = get_settings()
     issued_at = datetime.now(UTC)
     payload = {
@@ -83,7 +85,7 @@ def decode_token(token: str, expected_type: str) -> dict[str, Any]:
         )
 
     try:
-        uuid.UUID(str(payload["sub"]))
+        payload["sub"] = str(parse_uuid(payload["sub"], label="sub"))
     except (TypeError, ValueError):
         raise UnauthenticatedError("Your session token is not valid.", code="TOKEN_INVALID") from None
 

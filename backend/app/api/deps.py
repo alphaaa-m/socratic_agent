@@ -1,6 +1,5 @@
 """Auth dependencies (docs Sec 18.14). get_db is complete; auth is Phase 1."""
 
-import uuid
 from typing import Annotated
 
 from fastapi import Depends
@@ -9,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.jwt import ACCESS, decode_token
 from app.core.exceptions import ForbiddenError, UnauthenticatedError
+from app.core.ids import parse_uuid
 from app.database.session import get_db
 from app.models import User
 
@@ -30,7 +30,7 @@ def get_current_user(
 
     payload = decode_token(creds.credentials, expected_type=ACCESS)
     try:
-        user_id = uuid.UUID(str(payload["sub"]))
+        user_id = parse_uuid(payload["sub"], label="sub")
     except (KeyError, TypeError, ValueError):
         raise UnauthenticatedError("Your session token is not valid.", code="TOKEN_INVALID") from None
 

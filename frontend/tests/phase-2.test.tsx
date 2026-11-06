@@ -10,6 +10,7 @@ import SubjectsPage from "@/app/(app)/subjects/page";
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   startSession: vi.fn(),
+  createSubject: vi.fn(),
   currentUser: vi.fn(),
   subjectResult: vi.fn(),
   sessionsResult: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/hooks/useSubjects", () => ({
   useSubjects: () => mocks.subjectResult(),
+  useCreateSubject: () => ({ isPending: false, mutate: mocks.createSubject }),
 }));
 
 vi.mock("@/hooks/useSessions", () => ({
@@ -35,12 +37,14 @@ describe("Phase 2 student interface", () => {
   beforeEach(() => {
     mocks.push.mockReset();
     mocks.startSession.mockReset();
+    mocks.createSubject.mockReset();
+    mocks.createSubject.mockImplementation((body: { name: string }, options: { onSuccess: () => void }) => options.onSuccess());
     mocks.startSession.mockImplementation((_subjectId: string, options: { onSuccess: (session: { id: string }) => void }) =>
       options.onSuccess({ id: "session-123" })
     );
     mocks.currentUser.mockReturnValue({ data: { role: "student" } });
     mocks.subjectResult.mockReturnValue({
-      data: [{ id: "math", name: "Mathematics", description: "Learn algebra", is_active: true, created_at: "2026-01-01" }],
+      data: [{ id: "math", name: "Mathematics", description: "Learn algebra", is_active: true, owner_id: null, is_default: true, created_at: "2026-01-01" }],
       isLoading: false,
       error: null,
     });
@@ -57,6 +61,9 @@ describe("Phase 2 student interface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start session" }));
     expect(mocks.startSession).toHaveBeenCalledWith("math", expect.any(Object));
     expect(mocks.push).toHaveBeenCalledWith("/sessions/session-123");
+    fireEvent.change(screen.getByLabelText("Subject name"), { target: { value: "Astronomy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add subject" }));
+    expect(mocks.createSubject).toHaveBeenCalledWith({ name: "Astronomy", description: null }, expect.any(Object));
   });
 
   it("shows subject loading, empty, and error states", () => {
@@ -78,7 +85,7 @@ describe("Phase 2 student interface", () => {
     const onStatusChange = vi.fn();
     render(
       <SessionFilters
-        subjects={[{ id: "math", name: "Mathematics", description: null, is_active: true, created_at: "2026-01-01" }]}
+        subjects={[{ id: "math", name: "Mathematics", description: null, is_active: true, owner_id: null, is_default: true, created_at: "2026-01-01" }]}
         subjectId=""
         status=""
         onSubjectChange={onSubjectChange}

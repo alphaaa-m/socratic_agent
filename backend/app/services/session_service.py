@@ -1,12 +1,15 @@
 """Session service -- Phase 2 (create/list/get), Phase 6 (end) (FR-SES-*, FR-SUM-*)."""
 
+from uuid import UUID
+
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.agents.schemas import AgentState
 from app.core.exceptions import NotFoundError
-from app.models import LearnerProfile, LearningProgress, LearningSession, Subject
+from app.core.ids import require_uuid
+from app.models import LearnerProfile, LearningProgress, LearningSession, Subject, User
 from app.schemas.common import Page
 
 # Phase 5 will move this mapping to its level-estimation capability. Keeping it
@@ -22,14 +25,19 @@ class SessionService:
     def __init__(self, db: Session, agent=None, settings=None):
         self.db = db
 
-    def create(self, user, subject_id) -> LearningSession:
+    def create(self, user: User, subject_id: UUID) -> LearningSession:
         """FR-SES-01..03: active session, initial agent_state, counters +1."""
+        subject_id = require_uuid(subject_id, label="subject_id")
         try:
             # This lock prevents retirement between the active check and the
             # session creation transaction.
             subject = self.db.scalar(
                 select(Subject)
-                .where(Subject.id == subject_id, Subject.is_active.is_(True))
+                .where(
+                    Subject.id == subject_id,
+                    Subject.is_active.is_(True),
+                    Subject.visible_to(user.id),
+                )
                 .with_for_update()
             )
             if subject is None:
@@ -91,11 +99,11 @@ class SessionService:
         self.db.refresh(learning_session)
         return learning_session
 
-    def list(self, user, subject_id=None, status=None, limit: int = 20, offset: int = 0) -> Page:
+    def list(self, user: User, subject_id=None, status=None, limit: int = 20, offset: int = 0) -> Page:
         """FR-HIS-01: own sessions newest first."""
         filters = [LearningSession.user_id == user.id]
         if subject_id is not None:
-            filters.append(LearningSession.subject_id == subject_id)
+            filters.append(LearningSession.subject_id == require_uuid(subject_id, label="subject_id"))
         if status is not None:
             filters.append(LearningSession.status == status)
 
@@ -111,10 +119,10 @@ class SessionService:
         )
         return Page(items=items, total=total, limit=limit, offset=offset)
 
-    def get(self, user, session_id) -> LearningSession:
+    def get(self, user: User, session_id) -> LearningSession:
         session = self.db.scalar(
             select(LearningSession).where(
-                LearningSession.id == session_id,
+                LearningSession.id == require_uuid(session_id, label="session_id"),
                 LearningSession.user_id == user.id,
             )
         )

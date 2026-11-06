@@ -1,12 +1,14 @@
 """Tutoring service -- Phase 3 (docs Sec 19.5, FR-MSG-*, FR-CNV-*)."""
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.agents.schemas import AgentState, AgentTurnInput, ProfileSnapshot
 from app.core.exceptions import NotFoundError, SessionNotActiveError, TurnConflictError
+from app.core.ids import require_uuid
 from app.models import (
     LearnerAssessment,
     LearnerProfile,
@@ -15,6 +17,7 @@ from app.models import (
     Message,
     Subject,
 )
+from app.models.user import User
 from app.schemas.assessment import AssessmentResponse
 from app.schemas.common import Page
 from app.schemas.message import HintResponse, MessageResponse, SendMessageResponse
@@ -40,8 +43,9 @@ class TutoringService:
         self.agent = agent
         self.settings = settings
 
-    def list_messages(self, user, session_id, limit: int = 50, offset: int = 0):
+    def list_messages(self, user: User, session_id, limit: int = 50, offset: int = 0):
         """FR-CNV-02: conversation in time order with pagination."""
+        session_id = require_uuid(session_id, label="session_id")
         session = self.db.scalar(
             select(LearningSession.id).where(
                 LearningSession.id == session_id,
@@ -70,8 +74,9 @@ class TutoringService:
             offset=offset,
         )
 
-    def handle_student_message(self, user, session_id, content: str):
+    def handle_student_message(self, user: User, session_id, content: str):
         """3-phase flow: read -> agent (no DB) -> one write txn with turn_index guard."""
+        session_id = require_uuid(session_id, label="session_id")
         context = self._read_context_and_close(user, session_id)
         is_first_turn = context.message_count == 0
         turn = AgentTurnInput(
@@ -117,8 +122,9 @@ class TutoringService:
 
         return self._to_response(student_message, agent_message, assessment, out, session, profile)
 
-    def handle_hint_request(self, user, session_id):
+    def handle_hint_request(self, user: User, session_id):
         """Hint button: no assessment, saves agent hint + new state."""
+        session_id = require_uuid(session_id, label="session_id")
         context = self._read_context_and_close(user, session_id)
         turn = AgentTurnInput(
             kind="hint_request",
@@ -165,6 +171,7 @@ class TutoringService:
 
     def _load_context(self, user, session_id) -> TurnContext:
         """Load the owned, active session and the compact agent input context."""
+        session_id = require_uuid(session_id, label="session_id")
         session = self.db.scalar(
             select(LearningSession).where(
                 LearningSession.id == session_id,
@@ -220,10 +227,13 @@ class TutoringService:
             message_count=message_count,
         )
 
-    def _lock_active_session(self, user_id, session_id) -> LearningSession:
+    def _lock_active_session(self, user_id: UUID, session_id) -> LearningSession:
         session = self.db.scalar(
             select(LearningSession)
-            .where(LearningSession.id == session_id, LearningSession.user_id == user_id)
+            .where(
+                LearningSession.id == require_uuid(session_id, label="session_id"),
+                LearningSession.user_id == require_uuid(user_id, label="user_id"),
+            )
             .with_for_update()
         )
         if session is None:
@@ -255,9 +265,11 @@ class TutoringService:
         self.db.flush()
         return assessment
 
-    def _apply_learner_update(self, user_id, learner_update) -> LearnerProfile:
+    def _apply_learner_update(self, user_id: UUID, learner_update) -> LearnerProfile:
         profile = self.db.scalar(
-            select(LearnerProfile).where(LearnerProfile.user_id == user_id).with_for_update()
+            select(LearnerProfile)
+            .where(LearnerProfile.user_id == require_uuid(user_id, label="user_id"))
+            .with_for_update()
         )
         if profile is None:
             raise NotFoundError("Learner profile not found.")
@@ -266,10 +278,13 @@ class TutoringService:
         profile.current_level = learner_update.current_level
         return profile
 
-    def _touch_progress(self, user_id, subject_id) -> None:
+    def _touch_progress(self, user_id: UUID, subject_id: UUID) -> None:
         self.db.execute(
             update(LearningProgress)
-            .where(LearningProgress.user_id == user_id, LearningProgress.subject_id == subject_id)
+            .where(
+                LearningProgress.user_id == require_uuid(user_id, label="user_id"),
+                LearningProgress.subject_id == require_uuid(subject_id, label="subject_id"),
+            )
             .values(last_activity_at=func.now())
         )
 

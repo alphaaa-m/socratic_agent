@@ -125,7 +125,7 @@ def test_prompt_builder_keeps_layers_in_order_and_delimits_student_data():
     )
 
     assert all(isinstance(message, SystemMessage) for message in messages[:6])
-    assert "No reference material found." in messages[4].content
+    assert "Teach the session subject dynamically" in messages[4].content
     assert "targeted hint" in messages[5].content
     assert len(messages[6:-2]) == 10
     assert isinstance(messages[-2], HumanMessage)

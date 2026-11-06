@@ -51,6 +51,8 @@ export interface Subject {
   name: string;
   description: string | null;
   is_active: boolean;
+  owner_id: string | null;
+  is_default: boolean;
   created_at: string;
 }
 

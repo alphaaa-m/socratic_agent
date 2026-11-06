@@ -36,13 +36,39 @@ def test_subject_listing_defaults_to_active_and_can_include_retired(client, db, 
     )
 
 
-def test_subject_detail_missing_and_student_mutations_are_rejected(client, auth):
+def test_six_default_subjects_are_present_and_seeding_is_idempotent(db):
+    from app.services.subject_seed import DEFAULT_SUBJECTS, seed_default_subjects
+
+    assert seed_default_subjects(db) >= 0
+    db.commit()
+    assert seed_default_subjects(db) == 0
+    names = set(db.scalars(select(Subject.name).where(Subject.owner_id.is_(None))))
+    assert {name for name, _ in DEFAULT_SUBJECTS} <= names
+
+
+def test_subject_detail_missing_and_student_can_create_but_cannot_manage_defaults(client, auth):
     assert client.get(f"/api/v1/subjects/{uuid.uuid4()}", headers=auth).status_code == 404
-    assert client.post("/api/v1/subjects", headers=auth, json={"name": "Not allowed"}).status_code == 403
-    assert client.patch(
-        f"/api/v1/subjects/{uuid.uuid4()}", headers=auth, json={"name": "Not allowed"}
-    ).status_code == 403
-    assert client.delete(f"/api/v1/subjects/{uuid.uuid4()}", headers=auth).status_code == 403
+    custom = client.post("/api/v1/subjects", headers=auth, json={"name": "My topic"})
+    assert custom.status_code == 201
+    assert custom.json()["is_default"] is False
+    assert client.post("/api/v1/subjects", headers=auth, json={"name": "Python"}).status_code == 201
+
+
+def test_custom_subjects_are_private_and_duplicate_names_are_per_user(client, db, auth):
+    owner = register(client, email="owner@example.com")
+    owner_auth = authorization_for(client, owner["email"])
+    other = register(client, email="other@example.com")
+    other_auth = authorization_for(client, other["email"])
+    created = client.post("/api/v1/subjects", headers=owner_auth, json={"name": "Astronomy"})
+    subject_id = created.json()["id"]
+
+    assert client.get("/api/v1/subjects", headers=owner_auth).json()
+    assert subject_id not in [item["id"] for item in client.get("/api/v1/subjects", headers=other_auth).json()]
+    assert client.get(f"/api/v1/subjects/{subject_id}", headers=other_auth).status_code == 404
+    assert client.patch(f"/api/v1/subjects/{subject_id}", headers=other_auth, json={"name": "Changed"}).status_code == 404
+    assert client.delete(f"/api/v1/subjects/{subject_id}", headers=other_auth).status_code == 404
+    assert client.post("/api/v1/subjects", headers=owner_auth, json={"name": "astronomy"}).status_code == 409
+    assert client.post("/api/v1/subjects", headers=other_auth, json={"name": "Astronomy"}).status_code == 201
 
 
 def test_admin_can_create_update_and_retire_subjects_and_duplicate_is_conflict(client, db):
@@ -66,6 +92,19 @@ def test_admin_can_create_update_and_retire_subjects_and_duplicate_is_conflict(c
     assert updated.status_code == 200
     assert updated.json()["description"] is None
     assert updated.json()["is_active"] is False
+
+
+def test_admin_can_update_default_but_student_cannot(client, db, auth):
+    default = Subject(name="Shared Default")
+    db.add(default)
+    db.flush()
+    assert client.patch(
+        f"/api/v1/subjects/{default.id}", headers=auth, json={"name": "Changed"}
+    ).status_code == 403
+    _, admin_auth = make_admin(client, db)
+    assert client.patch(
+        f"/api/v1/subjects/{default.id}", headers=admin_auth, json={"description": "Updated"}
+    ).status_code == 200
 
 
 def test_admin_cannot_delete_subject_with_history_but_can_delete_empty_subject(client, db):
