@@ -7,6 +7,7 @@ from app.agents.prompts.context import (
     STUDENT_CONTEXT_TEMPLATE,
     SUBJECT_CONTEXT_TEMPLATE,
 )
+from app.agents.prompts.evaluation import EVALUATION_SYSTEM_PROMPT
 from app.agents.prompts.modes import (
     ASK_INSTRUCTION,
     HINT_INSTRUCTIONS,
@@ -17,6 +18,7 @@ from app.agents.prompts.system import SYSTEM_PROMPT
 
 __all__ = [
     "ASK_INSTRUCTION",
+    "EVALUATION_SYSTEM_PROMPT",
     "HINT_INSTRUCTIONS",
     "MEMORY_TEMPLATE",
     "MODE_INSTRUCTIONS",

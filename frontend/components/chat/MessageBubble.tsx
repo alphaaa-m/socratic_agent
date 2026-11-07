@@ -1,6 +1,7 @@
-import type { Message } from "@/types/api";
+import type { Assessment, Message } from "@/types/api";
+import { FeedbackChip } from "@/components/chat/FeedbackChip";
 
-export function MessageBubble({ message }: { message: Message }) {
+export function MessageBubble({ message, assessment }: { message: Message; assessment?: Assessment | null }) {
   const isStudent = message.sender === "student";
   const isHint = message.message_type === "hint";
   const label = isStudent ? "You" : isHint ? "Hint" : "Tutor";
@@ -10,6 +11,7 @@ export function MessageBubble({ message }: { message: Message }) {
         <span className="message-label">{isHint ? "💡 Hint" : label}</span>
         <p>{message.content}</p>
       </div>
+      {isStudent && assessment?.feedback ? <FeedbackChip feedback={assessment.feedback} /> : null}
     </article>
   );
 }

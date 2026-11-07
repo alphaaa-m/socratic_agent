@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 TurnKind = Literal["question", "response", "hint_request"]
 
@@ -28,6 +28,8 @@ class AgentState(BaseModel):
 
 
 class EvaluationResult(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
     correctness_score: float = Field(ge=0, le=1)
     reasoning_score: float = Field(ge=0, le=1)
     confidence_score: float = Field(ge=0, le=1)

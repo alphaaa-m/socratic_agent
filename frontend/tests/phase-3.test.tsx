@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatWindow } from "@/components/chat/ChatWindow";
+import { ResolvedBanner } from "@/components/chat/ResolvedBanner";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { messagesQueryKey, useSendMessage } from "@/hooks/useMessages";
 import { orderMessages } from "@/lib/message-order";
-import type { Message, Page, SendMessageResponse } from "@/types/api";
+import type { Assessment, Message, Page, SendMessageResponse } from "@/types/api";
 
 const sessionId = "session-1";
 const initialMessage: Message = {
@@ -195,5 +196,24 @@ describe("Phase 3 chat interface", () => {
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error), "Keep this draft"));
     expect(client.getQueryData<Page<Message>>(messagesQueryKey(sessionId))).toEqual({ items: [initialMessage], total: 1, limit: 50, offset: 0 });
+  });
+
+  it("renders feedback without exposing assessment scores or misconception labels", () => {
+    const assessment: Assessment = {
+      id: "assessment-1", session_id: sessionId, message_id: "student-1",
+      correctness_score: 0.2, reasoning_score: 0.1, confidence_score: 0.9,
+      difficulty_level: 2, misconception: "private label", feedback: "Try explaining your evidence.",
+      resolves_goal: false, created_at: "2026-10-21T00:00:02Z",
+    };
+    const student: Message = { ...initialMessage, id: "student-1", sender: "student", message_type: "response", content: "My thought" };
+    render(<ChatWindow messages={[student]} assessments={[assessment]} isResponding={false} />);
+    expect(screen.getByText("Try explaining your evidence.")).toBeInTheDocument();
+    expect(screen.queryByText("private label")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.2")).not.toBeInTheDocument();
+  });
+
+  it("shows the resolved status message", () => {
+    render(<ResolvedBanner />);
+    expect(screen.getByRole("status")).toHaveTextContent("You reached the answer");
   });
 });

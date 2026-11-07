@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "@/services/http";
-import { listMessages, requestHint, sendMessage, type MessageListParams } from "@/services/messages";
+import { listAssessments, listMessages, requestHint, sendMessage, type MessageListParams } from "@/services/messages";
 import { mergeMessages, orderMessages } from "@/lib/message-order";
 import type { HintResponse, Message, Page, SendMessageResponse } from "@/types/api";
 
@@ -25,6 +25,10 @@ export function useMessages(sessionId: string, params: MessageListParams = DEFAU
     },
     enabled: Boolean(sessionId),
   });
+}
+
+export function useAssessments(sessionId: string) {
+  return useQuery({ queryKey: ["assessments", sessionId], queryFn: () => listAssessments(sessionId), enabled: Boolean(sessionId) });
 }
 
 type SendOptions = {
@@ -87,7 +91,10 @@ export function useSendMessage(sessionId: string, options: SendOptions = {}) {
       }
       options.onError?.(error, variables.content);
     },
-    onSettled: () => client.invalidateQueries({ queryKey: messagesPrefix(sessionId) }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: messagesPrefix(sessionId) });
+      void client.invalidateQueries({ queryKey: ["assessments", sessionId] });
+    },
   });
 }
 

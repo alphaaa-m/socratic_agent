@@ -6,19 +6,12 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.agents.capabilities.level_estimator import START_DIFFICULTY
 from app.agents.schemas import AgentState
 from app.core.exceptions import NotFoundError
 from app.core.ids import require_uuid
 from app.models import LearnerProfile, LearningProgress, LearningSession, Subject, User
 from app.schemas.common import Page
-
-# Phase 5 will move this mapping to its level-estimation capability. Keeping it
-# here makes the Phase 2 starting rule explicit and easy to test.
-START_DIFFICULTY = {
-    "beginner": 2,
-    "intermediate": 3,
-    "advanced": 4,
-}
 
 
 class SessionService:

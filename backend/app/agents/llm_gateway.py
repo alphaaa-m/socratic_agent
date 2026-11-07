@@ -138,7 +138,19 @@ class LangChainGateway:
             raise LLMUnavailableError() from error
 
     def evaluate(self, messages) -> EvaluationResult:
-        return self._structured(self._eval, messages, EvaluationResult)
+        """Evaluate using the judge model (temperature 0).
+
+        On schema validation failure the call is retried once (FR-EVA-06).
+        After the second failure ``LLMUnavailableError`` is raised.
+        """
+        for attempt in range(2):
+            result = self._call(self._eval, messages)
+            try:
+                return EvaluationResult.model_validate(result)
+            except ValidationError as error:
+                if attempt == 1:
+                    raise LLMUnavailableError() from error
+        raise LLMUnavailableError()
 
     def check_subject_relevance(self, messages) -> SubjectRelevance:
         return self._structured(self._relevance, messages, SubjectRelevance)

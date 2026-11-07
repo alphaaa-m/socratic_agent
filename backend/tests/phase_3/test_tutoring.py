@@ -163,7 +163,8 @@ def test_hint_only_saves_agent_message_and_caps_hint_level(client, db):
     assert all(response.json()["agent_message"]["message_type"] == "hint" for response in responses)
     final = responses[-1].json()["session_state"]
     assert final["hint_level"] == 3
-    assert db.get(LearningSession, session_id).agent_state["hints_used"] == 4
+    # Raising the capped hint rung does not count as consuming a new hint.
+    assert db.get(LearningSession, session_id).agent_state["hints_used"] == 3
     messages = list(db.scalars(select(Message).where(Message.session_id == session_id)))
     assert len(messages) == 4
     assert {message.sender for message in messages} == {"agent"}

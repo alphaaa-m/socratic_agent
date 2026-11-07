@@ -1,5 +1,5 @@
 import { api } from "@/services/http";
-import type { HintResponse, Message, Page, SendMessageResponse } from "@/types/api";
+import type { Assessment, HintResponse, Message, Page, SendMessageResponse } from "@/types/api";
 
 export type MessageListParams = {
   limit?: number;
@@ -23,4 +23,8 @@ export function sendMessage(sessionId: string, content: string) {
 
 export function requestHint(sessionId: string) {
   return api<HintResponse>(`sessions/${sessionId}/hints`, { method: "POST" });
+}
+
+export function listAssessments(sessionId: string) {
+  return api<Assessment[]>(`sessions/${sessionId}/assessments`);
 }

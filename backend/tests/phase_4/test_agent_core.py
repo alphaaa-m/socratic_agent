@@ -194,15 +194,15 @@ def test_first_question_sets_session_goal_and_starting_difficulty():
     assert [call[0] for call in gateway.calls] == ["check_subject_relevance", "generate_reply"]
 
 
-def test_response_turn_only_generates_the_next_question_in_phase_four():
+def test_response_turn_runs_phase_five_evaluation_pipeline():
     gateway = FakeGateway()
     agent = SocraticAgent(gateway, NullRetriever(), SimpleNamespace())
 
     output = agent.handle_turn(make_turn())
 
-    assert output.evaluation is None
-    assert output.performance is None
-    assert [call[0] for call in gateway.calls] == ["check_subject_relevance", "generate_reply"]
+    assert output.evaluation is not None
+    assert output.performance == pytest.approx(0.5)
+    assert [call[0] for call in gateway.calls] == ["check_subject_relevance", "evaluate", "generate_reply"]
 
 
 @pytest.mark.parametrize(
@@ -375,6 +375,31 @@ def test_gateway_converts_three_transient_errors_to_unavailable(no_retry_wait):
         gateway.generate_reply([])
 
     assert reply_runnable.calls == 3
+
+
+def test_evaluation_gateway_retries_invalid_structured_output_once(no_retry_wait):
+    runnable = SequenceRunnable([
+        {"correctness_score": 1.4},
+        {
+            "correctness_score": 0.8,
+            "reasoning_score": 0.7,
+            "confidence_score": 0.6,
+            "feedback": "Good reasoning.",
+            "addresses_core_question": False,
+        },
+    ])
+    gateway = LangChainGateway(StubModel(SequenceRunnable([])), StubModel(runnable))
+    evaluation = gateway.evaluate([])
+    assert evaluation.correctness_score == 0.8
+    assert runnable.calls == 2
+
+
+def test_evaluation_gateway_fails_after_second_invalid_result(no_retry_wait):
+    runnable = SequenceRunnable([{"correctness_score": 1.4}, {"correctness_score": -1}])
+    gateway = LangChainGateway(StubModel(SequenceRunnable([])), StubModel(runnable))
+    with pytest.raises(LLMUnavailableError):
+        gateway.evaluate([])
+    assert runnable.calls == 2
 
 
 def test_gateway_maps_final_timeout_to_timeout_error(no_retry_wait):

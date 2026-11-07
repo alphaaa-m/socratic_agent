@@ -3,8 +3,10 @@
 import logging
 
 from langchain_core.messages import SystemMessage
+from pydantic import ValidationError
 
 from app.agents.schemas import TutorReply
+from app.core.exceptions import LLMTimeoutError, LLMUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +72,30 @@ class DialogueEngine:
         return self._template_question(state, mode)
 
     def closing_reply(self, turn, state, evaluation=None):
-        """Keep a safe question-only response until Phase 5 owns resolution."""
-        return self._template_question(state, "ask")
+        """Generate a closing confirmation reply using mode ``close`` (§16.4).
+
+        Uses the tutor model to produce a contextual closing message.  The
+        answer-leak guard is NOT applied here because the close message does
+        not need a question mark.  On any error, falls back to a template.
+        """
+        from app.agents.capabilities.hint_generator import HintGenerator
+        from app.agents.capabilities.prompt_builder import PromptBuilder
+
+        try:
+            messages = PromptBuilder(HintGenerator()).tutor_messages(
+                turn=turn,
+                state=state,
+                learner=turn.profile,
+                chunks=[],
+                mode="close",
+                history=[],
+                evaluation=evaluation,
+            )
+            raw = self.gateway.generate_reply(messages)
+            reply = TutorReply.model_validate(raw)
+            return reply.model_copy(update={"message_type": "guidance"})
+        except (LLMTimeoutError, LLMUnavailableError, ValidationError, ValueError, TypeError):
+            return self._closing_template(state)
 
     @staticmethod
     def _reply_for_mode(reply: TutorReply, mode: str) -> TutorReply:
@@ -86,4 +110,15 @@ class DialogueEngine:
             message=f"What do you already know about {concept}?",
             message_type="hint" if mode == "hint" else "guidance",
             target_concept=state.target_concepts[0] if state.target_concepts else None,
+        )
+
+    @staticmethod
+    def _closing_template(state) -> TutorReply:
+        """Safe fallback closing message."""
+        return TutorReply(
+            message=(
+                "You've reached the correct reasoning. Well done! "
+                "You can end the session now to see your summary."
+            ),
+            message_type="guidance",
         )

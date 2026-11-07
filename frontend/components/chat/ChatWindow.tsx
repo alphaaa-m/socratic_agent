@@ -4,9 +4,9 @@ import { useEffect, useRef } from "react";
 
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { orderMessages } from "@/lib/message-order";
-import type { Message } from "@/types/api";
+import type { Assessment, Message } from "@/types/api";
 
-export function ChatWindow({ messages, isResponding }: { messages: Message[]; isResponding: boolean }) {
+export function ChatWindow({ messages, assessments = [], isResponding }: { messages: Message[]; assessments?: Assessment[]; isResponding: boolean }) {
   const newest = useRef<HTMLDivElement>(null);
   const orderedMessages = orderMessages(messages);
 
@@ -23,7 +23,7 @@ export function ChatWindow({ messages, isResponding }: { messages: Message[]; is
 
   return (
     <section className="chat-log" role="log" aria-live="polite" aria-label="Tutoring conversation">
-      {orderedMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
+      {orderedMessages.map((message) => <MessageBubble key={message.id} message={message} assessment={assessments.find((item) => item.message_id === message.id)} />)}
       {isResponding && (
         <div className="message-row agent" aria-label="Tutor is typing">
           <div className="typing-bubble"><span /><span /><span /></div>

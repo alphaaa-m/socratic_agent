@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ChatWindow } from "@/components/chat/ChatWindow";
+import { ResolvedBanner } from "@/components/chat/ResolvedBanner";
 import { HintButton } from "@/components/chat/HintButton";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { SessionStatusBar } from "@/components/chat/SessionStatusBar";
-import { useHint, useMessages, useSendMessage } from "@/hooks/useMessages";
+import { useAssessments, useHint, useMessages, useSendMessage } from "@/hooks/useMessages";
 import { useSession } from "@/hooks/useSessions";
 import { useLearnerProfile } from "@/hooks/useUsers";
 import { ApiError } from "@/services/http";
@@ -29,6 +30,7 @@ export default function ChatPage({ params }: { params: { sessionId: string } }) 
   const { data: session, isLoading, error } = useSession(params.sessionId);
   const { data: profile } = useLearnerProfile();
   const messages = useMessages(params.sessionId);
+  const assessments = useAssessments(params.sessionId);
   const [draft, setDraft] = useState("");
   const [liveState, setLiveState] = useState<SessionState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -58,6 +60,7 @@ export default function ChatPage({ params }: { params: { sessionId: string } }) 
 
   const state = liveState ?? initialSessionState(session, profile?.current_level);
   const readOnly = session.status !== "active";
+  const resolved = state.resolved;
   const submit = () => {
     const content = draft;
     if (!content.trim() || send.isPending) return;
@@ -77,10 +80,11 @@ export default function ChatPage({ params }: { params: { sessionId: string } }) 
       {messages.isLoading ? <p className="muted">Loading conversation...</p> : null}
       {messages.error ? <p className="form-error" role="alert">{messages.error.message}</p> : null}
       <section className="panel chat-panel">
-        <ChatWindow messages={messages.data?.items ?? []} isResponding={send.isPending || hint.isPending} />
+        <ChatWindow messages={messages.data?.items ?? []} assessments={assessments.data ?? []} isResponding={send.isPending || hint.isPending} />
+        {resolved ? <ResolvedBanner /> : null}
         {notice && <p className="chat-toast" role="alert">{notice}</p>}
-        {readOnly ? (
-          <p className="read-only-notice" role="status">This {session.status} session is read-only.</p>
+        {readOnly || resolved ? (
+          <p className="read-only-notice" role="status">{resolved ? "This session is resolved." : `This ${session.status} session is read-only.`}</p>
         ) : (
           <div className="chat-controls">
             <MessageInput value={draft} onChange={setDraft} onSend={submit} isSending={send.isPending || hint.isPending} />

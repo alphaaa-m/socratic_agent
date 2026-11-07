@@ -6,15 +6,16 @@ from app.agents.capabilities.adaptive_controller import AdaptiveController
 from app.agents.capabilities.conversation_memory import ConversationMemory
 from app.agents.capabilities.dialogue_engine import DialogueEngine
 from app.agents.capabilities.hint_generator import HintGenerator
+from app.agents.capabilities.level_estimator import LevelEstimator
+from app.agents.capabilities.misconception_detector import MisconceptionDetector
 from app.agents.capabilities.prompt_builder import PromptBuilder
+from app.agents.capabilities.response_evaluator import ResponseEvaluator
 from app.agents.schemas import (
     AgentTurnInput,
     AgentTurnOutput,
     LearnerUpdate,
     TutorReply,
 )
-
-STARTING_DIFFICULTY = {"beginner": 2, "intermediate": 3, "advanced": 4}
 
 
 class SocraticAgent:
@@ -23,23 +24,33 @@ class SocraticAgent:
         self.retriever = retriever
         self.settings = settings
         self.dialogue = DialogueEngine(gateway, settings)
-        self.evaluator = None
+        self.evaluator = ResponseEvaluator(gateway)
         self.adaptive = AdaptiveController()
-        self.levels = None
+        self.levels = LevelEstimator()
         self.hints = HintGenerator()
         self.memory = ConversationMemory(gateway)
         self.prompts = PromptBuilder(self.hints)
-        self.misconceptions = None
+        self.misconceptions = MisconceptionDetector()
         self.summarizer = None
 
     def handle_turn(self, turn: AgentTurnInput) -> AgentTurnOutput:
-        """Run the Phase 4 pipeline without the Phase 5 evaluation branch."""
+        """Run the full §14.4 pipeline (Phase 5)."""
+        # Ensure gateway is current (the test suite may inject one after init)
         self.dialogue.gateway = self.gateway
-        state = turn.state.model_copy(deep=True)
-        if turn.kind == "hint_request":
-            state.hint_level = min(3, state.hint_level + 1)
-            state.hints_used += 1
+        self.evaluator.gateway = self.gateway
 
+        state = turn.state.model_copy(deep=True)
+        evaluation, performance = None, None
+        difficulty_used = state.difficulty
+        learner = LearnerUpdate(
+            level_score=turn.profile.level_score,
+            assessment_count=turn.profile.assessment_count,
+            current_level=turn.profile.current_level,
+        )
+
+        # ------------------------------------------------------------------
+        # Subject relevance guard (applies to non-hint turns)
+        # ------------------------------------------------------------------
         if turn.kind != "hint_request" and self.gateway.check_subject_relevance(
             self._subject_check_messages(turn)
         ).classification == "clearly_unrelated":
@@ -51,26 +62,45 @@ class SocraticAgent:
                 message_type="guidance",
             )
             state.turn_index += 1
-            return AgentTurnOutput(
-                reply=reply,
-                evaluation=None,
-                performance=None,
-                difficulty_used=state.difficulty,
-                new_state=state,
-                learner_update=LearnerUpdate(
-                    level_score=turn.profile.level_score,
-                    assessment_count=turn.profile.assessment_count,
-                    current_level=turn.profile.current_level,
-                ),
-                retrieved=[],
-                rag_status="off",
-            )
+            return self._output(reply, None, None, difficulty_used, state, learner, [], "off")
 
+        # ------------------------------------------------------------------
+        # Evaluation branch (§14.4)
+        # ------------------------------------------------------------------
         if turn.kind == "question" and turn.is_first_turn:
+            # Stage 4-5: set core question and starting difficulty
             state.core_question = turn.student_message
-            state.difficulty = STARTING_DIFFICULTY[turn.profile.current_level]
+            state.difficulty = self.levels.initial_difficulty(turn.profile.current_level)
+            difficulty_used = state.difficulty
 
+        elif turn.kind == "response":
+            # Stages 10-13: evaluate → normalize → adapt → update level
+            difficulty_used = state.difficulty
+            evaluation = self.evaluator.evaluate(turn, state)
+            evaluation = self.misconceptions.normalize(evaluation)
+            performance = self.adaptive.apply(state, evaluation)
+            learner = self.levels.update(turn.profile, performance, difficulty_used)
+
+        elif turn.kind == "hint_request":
+            self.adaptive.raise_hint(state)
+
+        # ------------------------------------------------------------------
+        # Mode selection (applies after all state mutations)
+        # ------------------------------------------------------------------
         mode = self.adaptive.select_mode(state)
+
+        # ------------------------------------------------------------------
+        # Closing path (resolved session skips retrieval)
+        # ------------------------------------------------------------------
+        if state.resolved:
+            reply = self.dialogue.closing_reply(turn, state, evaluation)
+            state.last_agent_question = reply.message
+            state.turn_index += 1
+            return self._output(reply, evaluation, performance, difficulty_used, state, learner, [], "off")
+
+        # ------------------------------------------------------------------
+        # Normal path: retrieve → build prompt → generate reply
+        # ------------------------------------------------------------------
         chunks, rag_status = self.retriever.retrieve(
             subject_id=turn.subject_id,
             query=self.memory.retrieval_query(turn, state),
@@ -78,33 +108,37 @@ class SocraticAgent:
         messages = self.prompts.tutor_messages(
             turn=turn,
             state=state,
-            learner=turn.profile,
+            learner=learner,
             chunks=chunks,
             mode=mode,
             history=self.memory.window(turn, state),
+            evaluation=evaluation,
         )
         reply = self.dialogue.generate(messages, state, mode, chunks)
 
         state.last_agent_question = reply.message
         state.turn_index += 1
-        learner_update = LearnerUpdate(
-            level_score=turn.profile.level_score,
-            assessment_count=turn.profile.assessment_count,
-            current_level=turn.profile.current_level,
-        )
-        return AgentTurnOutput(
-            reply=TutorReply.model_validate(reply),
-            evaluation=None,
-            performance=None,
-            difficulty_used=state.difficulty,
-            new_state=state,
-            learner_update=learner_update,
-            retrieved=chunks,
-            rag_status=rag_status,
-        )
+        return self._output(reply, evaluation, performance, difficulty_used, state, learner, chunks, rag_status)
 
     def summarize(self, *args, **kwargs):
         raise NotImplementedError("TODO(phase-6): implement SocraticAgent.summarize")
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _output(reply, evaluation, performance, difficulty_used, state, learner, chunks, rag_status):
+        return AgentTurnOutput(
+            reply=TutorReply.model_validate(reply),
+            evaluation=evaluation,
+            performance=performance,
+            difficulty_used=difficulty_used,
+            new_state=state,
+            learner_update=learner,
+            retrieved=chunks,
+            rag_status=rag_status,
+        )
 
     @staticmethod
     def _subject_check_messages(turn):

@@ -13,16 +13,39 @@ from app.agents.prompts import (
     SYSTEM_PROMPT,
 )
 
+# Calibration thresholds (§15.5)
+_CALIBRATION_HIGH_GAP = 0.40
+_CALIBRATION_LOW_GAP = -0.40
+
+
+def _calibration_label(
+    confidence: float | None,
+    correctness: float | None,
+) -> str:
+    """Return one of ``overconfident``, ``underconfident`` or ``calibrated``.
+
+    If the values are not yet available (first turn), returns
+    ``"not yet assessed"``.
+    """
+    if confidence is None or correctness is None:
+        return "not yet assessed"
+    gap = confidence - correctness
+    if gap > _CALIBRATION_HIGH_GAP:
+        return "overconfident"
+    if gap < _CALIBRATION_LOW_GAP:
+        return "underconfident"
+    return "calibrated"
+
 
 class PromptBuilder:
     def __init__(self, hints=None):
         self.hints = hints
 
-    def tutor_messages(self, turn, state, learner, chunks, mode, history):
+    def tutor_messages(self, turn, state, learner, chunks, mode, history, evaluation=None):
         """Build the fixed nine-layer prompt without trusting student content."""
         return [
             self._system_layer(),
-            self._student_context_layer(turn, state, learner),
+            self._student_context_layer(turn, state, learner, evaluation),
             self._subject_context_layer(turn, state),
             self._memory_layer(state),
             self._reference_material_layer(chunks),
@@ -37,19 +60,25 @@ class PromptBuilder:
         return SystemMessage(content=SYSTEM_PROMPT)
 
     @staticmethod
-    def _student_context_layer(turn, state, learner) -> SystemMessage:
+    def _student_context_layer(turn, state, learner, evaluation=None) -> SystemMessage:
         profile = turn.profile
         preferences = getattr(profile, "learning_preferences", {}) or "none"
         recurring = [
             label for label, count in state.misconceptions.items() if count >= 2
         ]
+
+        calibration = _calibration_label(
+            evaluation.confidence_score if evaluation else None,
+            evaluation.correctness_score if evaluation else None,
+        )
+
         return SystemMessage(
             content=STUDENT_CONTEXT_TEMPLATE.format(
                 current_level=getattr(learner, "current_level", profile.current_level),
                 level_score=getattr(learner, "level_score", profile.level_score),
                 difficulty=state.difficulty,
                 hint_level=state.hint_level,
-                calibration="not yet assessed",
+                calibration=calibration,
                 recurring_misconceptions=", ".join(recurring) or "none",
                 learning_preferences=preferences,
             )

@@ -182,6 +182,8 @@ class TutoringService:
             raise NotFoundError("Session not found.")
         if session.status != "active":
             raise SessionNotActiveError()
+        if AgentState.model_validate(session.agent_state).resolved:
+            raise SessionNotActiveError("Session is resolved.")
 
         profile = self.db.scalar(select(LearnerProfile).where(LearnerProfile.user_id == user.id))
         if profile is None:
